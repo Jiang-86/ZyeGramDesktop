@@ -382,10 +382,10 @@ void BuildSectionButtons(SectionBuilder &builder) {
 	const auto showOther = builder.showOther();
 
 	builder.addSectionButton({
-		.title = tr::ayu_AyuPreferences(),
+		.title = rpl::single(QString::fromUtf8("ZyeGram \xE8\xAE\xBE\xE7\xBD\xAE")),
 		.targetSection = AyuMain::Id(),
 		.icon = { &st::menuIconPremium },
-		.keywords = { u"ayu"_q },
+		.keywords = { u"zye"_q, u"ayu"_q },
 	});
 	builder.addSkip();
 	builder.addDivider();

@@ -225,7 +225,9 @@ void ChannelData::setFlags(ChannelDataFlags which) {
 			session().changes().peerUpdated(this, UpdateFlag::Migration);
 		}
 
-		if (wasIn && !amIn()) {
+		if (wasIn
+			&& !amIn()
+			&& !AyuSettings::getInstance().saveDeletedMessages()) {
 			crl::on_main(&session(), [=] {
 				if (!amIn()) {
 					Core::App().closeChatFromWindows(this);

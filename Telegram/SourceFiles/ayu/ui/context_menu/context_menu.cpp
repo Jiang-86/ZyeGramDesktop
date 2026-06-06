@@ -15,6 +15,8 @@
 #include "ayu/data/messages_storage.h"
 #include "ayu/features/filters/filters_controller.h"
 #include "ayu/features/forward/ayu_forward.h"
+#include "ayu/features/local_media/local_media_overrides.h"
+#include "ayu/ui/boxes/edit_mark_box.h"
 #include "ayu/ui/context_menu/menu_item_subtext.h"
 #include "ayu/ui/message_history/history_section.h"
 #include "ayu/ui/settings/filters/edit_filter.h"
@@ -24,10 +26,14 @@
 #include "base/call_delayed.h"
 #include "base/random.h"
 #include "base/unixtime.h"
+#include "chat_helpers/tabbed_panel.h"
+#include "chat_helpers/tabbed_selector.h"
 #include "core/mime_type.h"
+#include "core/file_utilities.h"
 #include "data/data_channel.h"
 #include "data/data_chat.h"
 #include "data/data_forum_topic.h"
+#include "data/data_groups.h"
 #include "data/data_search_controller.h"
 #include "data/data_session.h"
 #include "data/data_user.h"
@@ -37,17 +43,110 @@
 #include "history/view/history_view_element.h"
 #include "main/session/send_as_peers.h"
 #include "styles/style_ayu_icons.h"
+#include "styles/style_chat_helpers.h"
 #include "styles/style_layers.h"
 #include "styles/style_menu_icons.h"
 #include "ui/boxes/confirm_box.h"
 #include "ui/widgets/popup_menu.h"
 #include "ui/widgets/menu/menu_add_action_callback_factory.h"
+#include "window/window_controller.h"
 #include "window/window_peer_menu.h"
 #include "window/window_session_controller.h"
 
 namespace AyuUi {
 
 namespace {
+
+auto &LocalTextOverrides() {
+	static auto result = base::flat_map<FullMsgId, TextWithEntities>();
+	return result;
+}
+
+struct LocalStickerPanelState {
+	base::unique_qptr<ChatHelpers::TabbedPanel> panel;
+	FullMsgId itemId;
+	bool gifMode = false;
+};
+
+auto &LocalStickerPanel() {
+	static auto result = LocalStickerPanelState();
+	return result;
+}
+
+QString Utf8Text(const char *text) {
+	return QString::fromUtf8(text);
+}
+
+void ShowLocalStickerPanel(
+		not_null<Window::SessionController*> controller,
+		HistoryItem *item,
+		bool gifMode = false) {
+	if (!item) {
+		return;
+	}
+	using Selector = ChatHelpers::TabbedSelector;
+	using Descriptor = ChatHelpers::TabbedSelectorDescriptor;
+	using Mode = ChatHelpers::TabbedSelector::Mode;
+
+	auto &state = LocalStickerPanel();
+	controller->window().showToast(Utf8Text(
+		gifMode
+			? "\xE8\xAF\xB7\xE9\x80\x89\xE6\x8B\xA9\xE6\x9C\xAC"
+			  "\xE5\x9C\xB0\xE6\x9B\xBF\xE6\x8D\xA2\xE7\x9A\x84"
+			  "\x20GIF"
+			: "\xE8\xAF\xB7\xE9\x80\x89\xE6\x8B\xA9\xE6\x9C\xAC"
+			  "\xE5\x9C\xB0\xE6\x9B\xBF\xE6\x8D\xA2\xE7\x9A\x84"
+			  "\xE8\xA1\xA8\xE6\x83\x85"));
+	const auto body = controller->window().widget()->bodyWidget();
+	if (!state.panel || state.panel->parentWidget() != body || state.gifMode != gifMode) {
+		state.panel = nullptr;
+		state.gifMode = gifMode;
+		state.panel = base::make_unique_q<ChatHelpers::TabbedPanel>(
+			body,
+			controller,
+			object_ptr<Selector>(
+				nullptr,
+				Descriptor{
+					.show = controller->uiShow(),
+					.st = st::backgroundEmojiPan,
+					.level = Window::GifPauseReason::Layer,
+					.mode = gifMode ? Mode::Full : Mode::StickersOnly,
+					.features = {
+						.openStickerSets = false,
+					},
+				}));
+		state.panel->setDropDown(true);
+		state.panel->setDesiredHeightValues(
+			1.,
+			st::emojiPanMinHeight / 2,
+			st::emojiPanMaxHeight);
+		state.panel->selector()->fileChosen(
+		) | rpl::on_next([=](ChatHelpers::FileChosen data) {
+			const auto currentId = LocalStickerPanel().itemId;
+			if (const auto current = controller->session().data().message(
+					currentId)) {
+				if (LocalStickerPanel().gifMode) {
+					AyuFeatures::LocalMedia::setGifReplacement(
+						current,
+						data.document);
+				} else {
+					AyuFeatures::LocalMedia::setStickerReplacement(
+						current,
+						data.document);
+				}
+			}
+			if (LocalStickerPanel().panel) {
+				LocalStickerPanel().panel->hideAnimated();
+			}
+		}, state.panel->lifetime());
+	}
+	state.itemId = item->fullId();
+	const auto panel = state.panel.get();
+	const auto top = std::max(0, (body->height() - panel->height()) / 2);
+	const auto right = std::max(panel->width(), (body->width() + panel->width()) / 2);
+	panel->moveTopRight(top, right);
+	panel->showAnimated();
+}
 
 Fn<void()> ClearDeletedMessagesHandler(not_null<Window::SessionController*> controller, not_null<PeerData*> peer, ID topicId) {
 	return [=] {
@@ -755,105 +854,267 @@ void AddMessageDetailsAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item) {
 	});
 }
 
-void AddRepeatMessageAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item, HistoryView::Context context) {
-	const auto &settings = AyuSettings::getInstance();
-	if (!needToShowItem(settings.showRepeatMessageInContextMenu())) {
+void AddLocalEditMessageAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item) {
+	if (!item || !item->isHistoryEntry() || item->isService()) {
 		return;
 	}
-
-	if (!item || !item->isHistoryEntry() || item->isService() || item->isLocal() || !item->allowsForward() || item->id <= 0) {
+	if (item->originalText().text.isEmpty()) {
 		return;
+	}
+	const auto &settings = AyuSettings::getInstance();
+	if (!needToShowItem(settings.showLocalEditMessageInContextMenu())) {
+		return;
+	}
+	const auto title = Utf8Text(
+		"\xE6\x9C\xAC\xE5\x9C\xB0\xE4\xBF\xAE"
+		"\xE6\x94\xB9\xE6\x96\x87\xE5\xAD\x97");
+	const auto restoreTitle = Utf8Text(
+		"\xE6\x81\xA2\xE5\xA4\x8D\xE5\x8E\x9F\xE6\x96\x87");
+	const auto itemId = item->fullId();
+	const auto history = item->history();
+	const auto current = item->originalText().text;
+	menu->addAction(
+		title,
+		[=] {
+			if (const auto controller = history->session().tryResolveWindow()) {
+				controller->show(Box<EditMarkBox>(
+					rpl::single(title),
+					current,
+					current,
+					[=](const QString &value) {
+						if (const auto currentItem = history->owner().message(itemId)) {
+							auto &overrides = LocalTextOverrides();
+							if (!overrides.contains(itemId)) {
+								overrides.emplace(itemId, currentItem->originalText());
+							}
+							currentItem->setText({ value });
+							history->requestChatListMessage();
+						}
+					}));
+			}
+		},
+		&st::menuIconEdit);
+	if (LocalTextOverrides().contains(itemId)) {
+		menu->addAction(
+			restoreTitle,
+			[=] {
+				auto &overrides = LocalTextOverrides();
+				const auto i = overrides.find(itemId);
+				if (i == end(overrides)) {
+					return;
+				}
+				if (const auto currentItem = history->owner().message(itemId)) {
+					currentItem->setText(i->second);
+					history->requestChatListMessage();
+				}
+				overrides.erase(i);
+			},
+			&st::menuIconEdit);
+	}
+}
+
+void AddLocalEditStickerAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item) {
+	if (!item || !item->isHistoryEntry() || item->isService()) {
+		return;
+	}
+	const auto media = item->media();
+	const auto document = media ? media->document() : nullptr;
+	if (!document || (!document->sticker() && !document->isGifv() && !document->isAnimation())) {
+		return;
+	}
+	const auto &settings = AyuSettings::getInstance();
+	if (!needToShowItem(settings.showLocalEditStickerInContextMenu())) {
+		return;
+	}
+	const auto gif = !document->sticker();
+	const auto title = gif
+		? Utf8Text("\xE6\x9C\xAC\xE5\x9C\xB0\xE4\xBF\xAE\xE6\x94\xB9 GIF")
+		: Utf8Text(
+			"\xE6\x9C\xAC\xE5\x9C\xB0\xE4\xBF\xAE"
+			"\xE6\x94\xB9\xE8\xA1\xA8\xE6\x83\x85");
+	const auto restoreTitle = gif
+		? Utf8Text("\xE6\x81\xA2\xE5\xA4\x8D\xE5\x8E\x9F GIF")
+		: Utf8Text(
+			"\xE6\x81\xA2\xE5\xA4\x8D\xE5\x8E\x9F\xE8\xA1\xA8\xE6\x83\x85");
+	const auto history = item->history();
+	menu->addAction(
+		title,
+		[=] {
+			if (const auto controller = history->session().tryResolveWindow()) {
+				ShowLocalStickerPanel(controller, item, gif);
+			}
+		},
+		gif ? &st::menuIconGif : &st::menuIconStickers);
+	const auto replaced = gif
+		? AyuFeatures::LocalMedia::hasGifReplacement(item)
+		: AyuFeatures::LocalMedia::hasStickerReplacement(item);
+	if (replaced) {
+		menu->addAction(
+			restoreTitle,
+			[=] {
+				if (gif) {
+					AyuFeatures::LocalMedia::clearGifReplacement(item);
+				} else {
+					AyuFeatures::LocalMedia::clearStickerReplacement(item);
+				}
+			},
+			gif ? &st::menuIconGif : &st::menuIconStickers);
+	}
+}
+
+bool CanRepeatMessage(HistoryItem *item) {
+	if (!item || !item->isHistoryEntry() || item->isService() || item->isLocal() || !item->allowsForward() || item->id <= 0) {
+		return false;
 	}
 
 	const auto history = item->history();
 	const auto peer = history->peer;
 	if (!peer->isUser() && !peer->isChat() && !peer->isMegagroup() && !peer->isGigagroup()) {
-		return;
+		return false;
+	}
+	return true;
+}
+
+HistoryItemsList ItemsToRepeat(HistoryItem *item) {
+	auto result = HistoryItemsList();
+	if (!item) {
+		return result;
+	}
+	if (const auto group = item->history()->owner().groups().find(item)) {
+		for (const auto &groupItem : group->items) {
+			if (CanRepeatMessage(groupItem)) {
+				result.push_back(groupItem);
+			}
+		}
+	} else if (CanRepeatMessage(item)) {
+		result.push_back(item);
+	}
+	return result;
+}
+
+bool RepeatNoQuoteItem(
+		not_null<Main::Session*> session,
+		not_null<HistoryItem*> item,
+		const Api::SendAction &action) {
+	auto message = ApiWrap::MessageToSend(action);
+	const auto media = item->media();
+	if (!item->originalText().text.isEmpty()) {
+		message.textWithTags = {
+			item->originalText().text,
+			TextUtilities::ConvertEntitiesToTextTags(
+				item->originalText().entities),
+		};
+	}
+	if (media) {
+		if (const auto photo = media->photo()) {
+			Api::SendExistingPhoto(std::move(message), photo);
+			return true;
+		} else if (const auto document = media->document()) {
+			Api::SendExistingDocument(std::move(message), document);
+			return true;
+		}
+		return false;
+	} else if (!item->originalText().text.trimmed().isEmpty()) {
+		session->api().sendMessage(std::move(message));
+		return true;
+	}
+	return false;
+}
+
+bool RepeatMessage(HistoryItem *item, HistoryView::Context context) {
+	if (!CanRepeatMessage(item)) {
+		return false;
 	}
 
+	const auto history = item->history();
+	const auto peer = history->peer;
 	const auto itemId = item->fullId();
 	const auto session = &history->session();
 
+	const auto sendAs = (peer->isUser() || peer->isChat() || history->peer->isMonoforum())
+		? nullptr
+		: session->sendAsPeers().resolveChosen(peer).get();
+
+	const auto inRepliesView = (context == HistoryView::Context::Replies);
+	const auto replyTo = item->replyTo();
+	const auto hasReply = replyTo.messageId.msg != 0;
+	const auto shiftPressed = base::IsShiftPressed();
+
+	const auto useNoQuote = shiftPressed || (inRepliesView && !history->peer->isForum());
+	const auto preserveReply = inRepliesView ? hasReply : (hasReply && shiftPressed);
+
+	const auto currentItem = history->owner().message(itemId);
+	if (!currentItem) {
+		return false;
+	}
+
+	auto action = Api::SendAction(
+		history,
+		Api::SendOptions{ .sendAs = sendAs });
+	if (history->peer->amMonoforumAdmin()) {
+		action.replyTo.monoforumPeerId = currentItem->sublistPeerId();
+	}
+	action.clearDraft = false;
+
+	applyGhostScheduling(session, action.options);
+
+	if (currentItem->topic()) {
+		action.replyTo.topicRootId = currentItem->topicRootId();
+	}
+
+	if (preserveReply) {
+		action.replyTo.messageId = replyTo.messageId;
+	}
+
+	if (useNoQuote) {
+		auto sent = false;
+		const auto parts = ItemsToRepeat(currentItem);
+		if (parts.size() > 1 && session->api().sendExistingAlbum(parts, action)) {
+			return true;
+		}
+		for (const auto &part : parts) {
+			sent = RepeatNoQuoteItem(session, part, action) || sent;
+		}
+		if (!sent) {
+			return false;
+		}
+	} else {
+		const auto forwardDraft = Data::ForwardDraft{
+			.ids = MessageIdsList{ itemId },
+			.options = Data::ForwardOptions::PreserveInfo,
+		};
+		auto resolvedDraft = history->resolveForwardDraft(forwardDraft);
+
+		if (AyuForward::isFullAyuForwardNeeded(currentItem)) {
+			crl::async([=]
+			{
+				AyuForward::forwardMessages(session, action, false, resolvedDraft);
+			});
+		} else if (AyuForward::isAyuForwardNeeded(currentItem)) {
+			crl::async([=]
+			{
+				AyuForward::intelligentForward(session, action, resolvedDraft);
+			});
+		} else {
+			session->api().forwardMessages(std::move(resolvedDraft), action, [] {});
+		}
+	}
+	return true;
+}
+
+void AddRepeatMessageAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item, HistoryView::Context context) {
+	AddLocalEditStickerAction(menu, item);
+	AddLocalEditMessageAction(menu, item);
+
+	const auto &settings = AyuSettings::getInstance();
+	if (!needToShowItem(settings.showRepeatMessageInContextMenu())
+		|| !CanRepeatMessage(item)) {
+		return;
+	}
+
 	menu->addAction(
 		tr::ayu_RepeatMessage(tr::now),
-		[=]
-		{
-			const auto sendAs = (peer->isUser() || peer->isChat() || history->peer->isMonoforum())
-				? nullptr
-				: session->sendAsPeers().resolveChosen(peer).get();
-
-			const auto inRepliesView = (context == HistoryView::Context::Replies);
-			const auto replyTo = item->replyTo();
-			const auto hasReply = replyTo.messageId.msg != 0;
-			const auto shiftPressed = base::IsShiftPressed();
-
-			const auto useNoQuote = shiftPressed || (inRepliesView && !history->peer->isForum());
-			const auto preserveReply = inRepliesView ? hasReply : (hasReply && shiftPressed);
-
-			const auto currentItem = history->owner().message(itemId);
-			if (!currentItem) {
-				return;
-			}
-
-			auto action = Api::SendAction(
-				history,
-				Api::SendOptions{ .sendAs = sendAs });
-			if (history->peer->amMonoforumAdmin()) {
-				action.replyTo.monoforumPeerId = currentItem->sublistPeerId();
-			}
-			action.clearDraft = false;
-
-			applyGhostScheduling(session, action.options);
-
-			if (currentItem->topic()) {
-				action.replyTo.topicRootId = currentItem->topicRootId();
-			}
-
-			if (preserveReply) {
-				action.replyTo.messageId = replyTo.messageId;
-			}
-
-			if (useNoQuote) {
-				auto message = ApiWrap::MessageToSend(action);
-				const auto media = currentItem->media();
-				if (!currentItem->originalText().text.isEmpty()) {
-					message.textWithTags = {
-						currentItem->originalText().text,
-						TextUtilities::ConvertEntitiesToTextTags(
-							currentItem->originalText().entities),
-					};
-				}
-				if (media) {
-					if (const auto photo = media->photo()) {
-						Api::SendExistingPhoto(std::move(message), photo);
-					} else if (const auto document = media->document()) {
-						Api::SendExistingDocument(std::move(message), document);
-					}
-				} else {
-					session->api().sendMessage(std::move(message));
-				}
-			} else {
-				const auto forwardDraft = Data::ForwardDraft{
-					.ids = MessageIdsList{ itemId },
-					.options = Data::ForwardOptions::PreserveInfo,
-				};
-				auto resolvedDraft = history->resolveForwardDraft(forwardDraft);
-
-				if (AyuForward::isFullAyuForwardNeeded(currentItem)) {
-					crl::async([=]
-					{
-						AyuForward::forwardMessages(session, action, false, resolvedDraft);
-					});
-				} else if (AyuForward::isAyuForwardNeeded(currentItem)) {
-					crl::async([=]
-					{
-						AyuForward::intelligentForward(session, action, resolvedDraft);
-					});
-				} else {
-					session->api().forwardMessages(std::move(resolvedDraft), action, [] {});
-				}
-			}
-		},
+		[=] { RepeatMessage(item, context); },
 		&st::ayuRepeatMenuIcon);
 }
 

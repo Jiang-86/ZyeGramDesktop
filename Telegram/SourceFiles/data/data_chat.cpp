@@ -149,7 +149,9 @@ void ChatData::invalidateParticipants() {
 void ChatData::setFlags(ChatDataFlags which) {
 	const auto wasIn = amIn();
 	_flags.set(which);
-	if (wasIn && !amIn()) {
+	if (wasIn
+		&& !amIn()
+		&& !AyuSettings::getInstance().saveDeletedMessages()) {
 		crl::on_main(&session(), [=] {
 			if (!amIn()) {
 				Core::App().closeChatFromWindows(this);

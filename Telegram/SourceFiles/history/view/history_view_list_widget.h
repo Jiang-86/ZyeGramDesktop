@@ -603,6 +603,7 @@ private:
 	QPoint mapPointToItem(QPoint point, const Element *view) const;
 
 	void showContextMenu(QContextMenuEvent *e, bool showFromTouch = false);
+	bool handleRightRepeatContextMenu(QContextMenuEvent *e);
 	void reactionChosen(ChosenReaction reaction);
 
 	void touchResetSpeed();
@@ -825,6 +826,12 @@ private:
 	Ui::Animations::Simple _scrollDateOpacity;
 	SingleQueuedInvokation _scrollDateCheck;
 	base::Timer _scrollDateHideTimer;
+	QPoint _rightRepeatContextMenuPosition;
+	FullMsgId _rightRepeatContextMenuItemId;
+	QPoint _lastRightRepeatPosition;
+	FullMsgId _lastRightRepeatItemId;
+	crl::time _lastRightRepeatTime = 0;
+	base::Timer _rightRepeatContextMenuTimer;
 	Element *_scrollDateLastItem = nullptr;
 	int _scrollDateLastItemTop = 0;
 	ClickHandlerPtr _scrollDateLink;

@@ -13,6 +13,9 @@
 #include "ayu/ui/settings/ayu_builder.h"
 #include "ayu/ui/settings/settings_ayu_utils.h"
 #include "ayu/ui/settings/settings_main.h"
+#include "core/application.h"
+#include "core/core_settings.h"
+#include "history/view/history_view_quick_action.h"
 #include "settings/settings_builder.h"
 #include "settings/settings_common.h"
 #include "styles/style_ayu_icons.h"
@@ -348,6 +351,28 @@ void BuildContextMenuElements(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.options = options,
 		.setter = [](int i) { AyuSettings::getInstance().setShowMessageDetailsInContextMenu(static_cast<ContextMenuVisibility>(i)); },
 		.icon = { &st::menuIconInfo },
+	});
+	ayu.addChooseButton({
+		.id = u"ayu/showLocalEditMessageInContextMenu"_q,
+		.title = rpl::single(QString::fromUtf8(
+			"\xE6\x9C\xAC\xE5\x9C\xB0\xE4\xBF\xAE"
+			"\xE6\x94\xB9\xE6\x96\x87\xE5\xAD\x97")),
+		.boxTitle = tr::ayu_SettingsContextMenuTitle(),
+		.initialSelection = static_cast<int>(settings->showLocalEditMessageInContextMenu()),
+		.options = options,
+		.setter = [](int i) { AyuSettings::getInstance().setShowLocalEditMessageInContextMenu(static_cast<ContextMenuVisibility>(i)); },
+		.icon = { &st::menuIconEdit },
+	});
+	ayu.addChooseButton({
+		.id = u"ayu/showLocalEditStickerInContextMenu"_q,
+		.title = rpl::single(QString::fromUtf8(
+			"\xE6\x9C\xAC\xE5\x9C\xB0\xE4\xBF\xAE"
+			"\xE6\x94\xB9\xE8\xA1\xA8\xE6\x83\x85")),
+		.boxTitle = tr::ayu_SettingsContextMenuTitle(),
+		.initialSelection = static_cast<int>(settings->showLocalEditStickerInContextMenu()),
+		.options = options,
+		.setter = [](int i) { AyuSettings::getInstance().setShowLocalEditStickerInContextMenu(static_cast<ContextMenuVisibility>(i)); },
+		.icon = { &st::menuIconStickers },
 	});
 	ayu.addChooseButton({
 		.id = u"ayu/showRepeatMessageInContextMenu"_q,

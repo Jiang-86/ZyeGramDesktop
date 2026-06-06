@@ -22,7 +22,7 @@ protected:
 	void mousePressEvent(QMouseEvent *e) override;
 
 private:
-	void drawIcon(QPainter &p, const QImage &icon, int x, int y, float strokeOpacity);
+	void drawIcon(QPainter &p, const QImage &icon, int x, int y, float strokeOpacity, bool circle);
 	[[nodiscard]] int cellWidth() const;
 
 	Ui::Animations::Simple _animation;

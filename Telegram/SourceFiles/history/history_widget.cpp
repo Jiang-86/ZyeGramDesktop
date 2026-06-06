@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/history_widget.h"
 
+#include "ayu/ayu_settings.h"
 #include "api/api_editing.h"
 #include "api/api_bot.h"
 #include "api/api_chat_participants.h"
@@ -4181,6 +4182,17 @@ void HistoryWidget::closeCurrent() {
 }
 
 void HistoryWidget::messagesFailed(const MTP::Error &error, int requestId) {
+	const auto clearFailedRequest = [&] {
+		if (_preloadRequest == requestId) {
+			_preloadRequest = 0;
+		} else if (_preloadDownRequest == requestId) {
+			_preloadDownRequest = 0;
+		} else if (_firstLoadRequest == requestId) {
+			_firstLoadRequest = 0;
+		} else if (_delayedShowAtRequest == requestId) {
+			_delayedShowAtRequest = 0;
+		}
+	};
 	if (error.type() == u"CHANNEL_PRIVATE"_q
 		&& _peer->isChannel()
 		&& _peer->asChannel()->invitePeekExpires()) {
@@ -4188,6 +4200,12 @@ void HistoryWidget::messagesFailed(const MTP::Error &error, int requestId) {
 	} else if (error.type() == u"CHANNEL_PRIVATE"_q
 		|| error.type() == u"CHANNEL_PUBLIC_GROUP_NA"_q
 		|| error.type() == u"USER_BANNED_IN_CHANNEL"_q) {
+		if (AyuSettings::getInstance().saveDeletedMessages()
+			&& _history
+			&& !_history->isEmpty()) {
+			clearFailedRequest();
+			return;
+		}
 		auto was = _peer;
 		closeCurrent();
 		const auto wasAccount = not_null(&was->account());

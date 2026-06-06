@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/history_view_list_widget.h"
 
+#include "ayu/ayu_settings.h"
 #include "base/unixtime.h"
 #include "base/qt/qt_key_modifiers.h"
 #include "base/qt/qt_common_adapters.h"
@@ -457,6 +458,15 @@ ListWidget::ListWidget(
 	}
 
 	_scrollDateHideTimer.setCallback([this] { scrollDateHideByTimer(); });
+	_rightRepeatContextMenuTimer.setCallback([this] {
+		const auto position = _rightRepeatContextMenuPosition;
+		_rightRepeatContextMenuItemId = FullMsgId();
+		auto event = QContextMenuEvent(
+			QContextMenuEvent::Mouse,
+			mapFromGlobal(position),
+			position);
+		showContextMenu(&event);
+	});
 	_session->data().viewRepaintRequest(
 	) | rpl::on_next([this](Data::RequestViewRepaint data) {
 		if (data.view->delegate() == this) {
@@ -2875,6 +2885,20 @@ auto ListWidget::scrollKeyEvents() const
 void ListWidget::mouseDoubleClickEvent(QMouseEvent *e) {
 	registerReadMetricsActivity();
 	mouseActionStart(e->globalPos(), e->button());
+	const auto quickAction = CurrentQuickAction();
+	const auto repeatWithRight = AyuSettings::getInstance().doubleClickRepeatRightButton();
+	if (quickAction == DoubleClickQuickAction::RepeatText
+		&& !repeatWithRight
+		&& e->button() == Qt::LeftButton
+		&& !ClickHandler::getActive()
+		&& !ClickHandler::getPressed()
+		&& _selected.empty()
+		&& _overElement
+		&& _overElement->data()->isRegular()) {
+		mouseActionCancel();
+		RepeatTextMessage(_overElement->data());
+		return;
+	}
 	trySwitchToWordSelection();
 	if (!ClickHandler::getActive()
 		&& !ClickHandler::getPressed()
@@ -2882,14 +2906,20 @@ void ListWidget::mouseDoubleClickEvent(QMouseEvent *e) {
 			|| _mouseCursorState == CursorState::Date)
 		&& _selected.empty()
 		&& _overElement
-		&& _overElement->data()->isRegular()) {
+		&& _overElement->data()->isRegular()
+		&& e->button() == Qt::LeftButton) {
 		mouseActionCancel();
-		switch (CurrentQuickAction()) {
+		switch (quickAction) {
 		case DoubleClickQuickAction::Reply: {
 			replyToMessageRequestNotify({ _overElement->data()->fullId() });
 		} break;
 		case DoubleClickQuickAction::React: {
 			toggleFavoriteReaction(_overElement);
+		} break;
+		case DoubleClickQuickAction::RepeatText: {
+			if (repeatWithRight) {
+				replyToMessageRequestNotify({ _overElement->data()->fullId() });
+			}
 		} break;
 		default: break;
 		}
@@ -2960,7 +2990,59 @@ void ListWidget::validateTrippleClickStartTime() {
 }
 
 void ListWidget::contextMenuEvent(QContextMenuEvent *e) {
+	if (handleRightRepeatContextMenu(e)) {
+		return;
+	}
 	showContextMenu(e);
+}
+
+bool ListWidget::handleRightRepeatContextMenu(QContextMenuEvent *e) {
+	if (e->reason() != QContextMenuEvent::Mouse
+		|| CurrentQuickAction() != DoubleClickQuickAction::RepeatText
+		|| !AyuSettings::getInstance().doubleClickRepeatRightButton()) {
+		return false;
+	}
+	mouseActionUpdate(e->globalPos());
+	const auto item = _overItemExact
+		? _overItemExact
+		: _overElement
+		? _overElement->data().get()
+		: nullptr;
+	if (!item || !item->isRegular()) {
+		return false;
+	}
+	const auto itemId = item->fullId();
+	const auto justRepeated = _lastRightRepeatItemId == itemId
+		&& (crl::now() - _lastRightRepeatTime)
+			< QApplication::doubleClickInterval()
+		&& (e->globalPos() - _lastRightRepeatPosition).manhattanLength()
+			< QApplication::startDragDistance();
+	if (justRepeated) {
+		e->accept();
+		return true;
+	}
+	const auto wasWaiting = _rightRepeatContextMenuTimer.isActive()
+		&& _rightRepeatContextMenuItemId == itemId
+		&& (e->globalPos() - _rightRepeatContextMenuPosition).manhattanLength()
+			< QApplication::startDragDistance();
+	if (wasWaiting) {
+		_rightRepeatContextMenuTimer.cancel();
+		_rightRepeatContextMenuItemId = FullMsgId();
+		if (RepeatTextMessage(item)) {
+			_lastRightRepeatPosition = e->globalPos();
+			_lastRightRepeatItemId = itemId;
+			_lastRightRepeatTime = crl::now();
+			mouseActionCancel();
+			e->accept();
+			return true;
+		}
+		return false;
+	}
+	_rightRepeatContextMenuPosition = e->globalPos();
+	_rightRepeatContextMenuItemId = itemId;
+	_rightRepeatContextMenuTimer.callOnce(QApplication::doubleClickInterval());
+	e->accept();
+	return true;
 }
 
 void ListWidget::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {

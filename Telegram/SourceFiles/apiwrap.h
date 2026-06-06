@@ -342,6 +342,9 @@ public:
 		SendMediaType type,
 		std::shared_ptr<SendingAlbum> album,
 		const SendAction &action);
+	bool sendExistingAlbum(
+		HistoryItemsList items,
+		const SendAction &action);
 	void sendFile(
 		const QByteArray &fileContent,
 		SendMediaType type,

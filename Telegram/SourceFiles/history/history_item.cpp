@@ -746,6 +746,7 @@ HistoryItem::HistoryItem(
 	not_null<DocumentData*> document,
 	const TextWithEntities &caption)
 : HistoryItem(history, fields) {
+	const auto groupedId = fields.groupedId;
 	createComponentsHelper(std::move(fields));
 
 	const auto video = document->video();
@@ -756,6 +757,12 @@ HistoryItem::HistoryItem(
 		.spoiler = fields.mediaSpoiler,
 	});
 	setText(caption);
+	if (groupedId) {
+		setGroupId(MessageGroupId::FromRaw(
+			history->peer->id,
+			groupedId,
+			_flags & MessageFlag::IsOrWasScheduled));
+	}
 }
 
 HistoryItem::HistoryItem(
@@ -764,11 +771,18 @@ HistoryItem::HistoryItem(
 	not_null<PhotoData*> photo,
 	const TextWithEntities &caption)
 : HistoryItem(history, fields) {
+	const auto groupedId = fields.groupedId;
 	createComponentsHelper(std::move(fields));
 
 	const auto spoiler = fields.mediaSpoiler;
 	_media = std::make_unique<Data::MediaPhoto>(this, photo, spoiler);
 	setText(caption);
+	if (groupedId) {
+		setGroupId(MessageGroupId::FromRaw(
+			history->peer->id,
+			groupedId,
+			_flags & MessageFlag::IsOrWasScheduled));
+	}
 }
 
 HistoryItem::HistoryItem(

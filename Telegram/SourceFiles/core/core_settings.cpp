@@ -1140,7 +1140,8 @@ void Settings::addFromSerialized(const QByteArray &serialized) {
 		switch (uncheckedChatQuickAction) {
 		case Quick::None:
 		case Quick::Reply:
-		case Quick::React: _chatQuickAction = uncheckedChatQuickAction; break;
+		case Quick::React:
+		case Quick::RepeatText: _chatQuickAction = uncheckedChatQuickAction; break;
 		}
 	}
 	_suggestAnimatedEmoji = (suggestAnimatedEmoji == 1);

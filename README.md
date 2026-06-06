@@ -1,6 +1,37 @@
-# AyuGram
+# ZyeGram
 
 ![AyuGram Logo](.github/AyuGram.png) ![AyuChan](.github/AyuChan.png)
+
+ZyeGram is a personal Windows build derived from the open source
+Telegram Desktop / AyuGram Desktop projects.
+
+Build 2026.06 is based on AyuGram Desktop and keeps the original GPLv3
+with OpenSSL exception licensing terms.
+
+## ZyeGram additions
+
+- Repeat messages, including text and media albums.
+- Keyword highlighting and keyword notifications.
+- Local message text / sticker display edits.
+- Local UI branding and update-source protection for ZyeGram.
+
+## Author and links
+
+- Author: 折页冬 @dizhu06
+- Channel: https://t.me/dizhu2
+- Chat: https://t.me/dizhu06
+
+## Source and license
+
+This repository contains the corresponding source for ZyeGram builds.
+ZyeGram is distributed under GNU GPL v3 with the OpenSSL linking
+exception inherited from Telegram Desktop. See [LICENSE](LICENSE) and
+[LEGAL](LEGAL).
+
+Based on AyuGram Desktop.
+Based on Telegram Desktop.
+
+## Upstream AyuGram information
 
 [ English  |   [Русский](README-RU.md) ]
 

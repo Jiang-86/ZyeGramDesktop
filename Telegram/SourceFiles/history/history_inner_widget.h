@@ -363,6 +363,7 @@ private:
 	[[nodiscard]] HistoryView::SelectedQuote selectedQuote(
 		not_null<HistoryItem*> item) const;
 
+	bool handleRightRepeatContextMenu(QContextMenuEvent *e);
 	void showContextMenu(QContextMenuEvent *e, bool showFromTouch = false);
 	void cancelContextDownload(not_null<DocumentData*> document);
 	void openContextGif(FullMsgId itemId);
@@ -557,6 +558,12 @@ private:
 
 	QPoint _trippleClickPoint;
 	base::Timer _trippleClickTimer;
+	QPoint _rightRepeatContextMenuPosition;
+	FullMsgId _rightRepeatContextMenuItemId;
+	QPoint _lastRightRepeatPosition;
+	FullMsgId _lastRightRepeatItemId;
+	crl::time _lastRightRepeatTime = 0;
+	base::Timer _rightRepeatContextMenuTimer;
 
 	Element *_dragSelFrom = nullptr;
 	Element *_dragSelTo = nullptr;

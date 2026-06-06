@@ -22,6 +22,7 @@ ICON(WIN95, "win95");
 ICON(CHIBI, "chibi");
 ICON(CHIBI2, "chibi2");
 ICON(EXTERA2, "extera2");
+ICON(ZYE, "zye");
 
 void loadAppIco();
 QString appIcoPath();

@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/history.h"
 
+#include "ayu/ayu_settings.h"
+#include "ayu/features/keywords/keyword_rules.h"
 #include "history/view/history_view_element.h"
 #include "history/view/history_view_item_preview.h"
 #include "history/view/history_view_translate_tracker.h"
@@ -2624,9 +2626,13 @@ Dialogs::UnreadState History::computeUnreadState() const {
 		|| (peer->isUser() && !settings.showPrivateChatReactions());
 	result.reactions = hideReactions ? 0 : (unreadReactions().has() ? 1 : 0);
 	result.polls = unreadPollVotes().has() ? 1 : 0;
-	result.messagesMuted = muted ? result.messages : 0;
-	result.chatsMuted = muted ? result.chats : 0;
-	result.marksMuted = muted ? result.marks : 0;
+	const auto keywordNotify = muted
+		&& _chatListMessage
+		&& AyuFeatures::Keywords::hasNotificationMatch(
+			_chatListMessage.value_or(nullptr));
+	result.messagesMuted = (muted && !keywordNotify) ? result.messages : 0;
+	result.chatsMuted = (muted && !keywordNotify) ? result.chats : 0;
+	result.marksMuted = (muted && !keywordNotify) ? result.marks : 0;
 	result.reactionsMuted = muted ? result.reactions : 0;
 	result.pollsMuted = muted ? result.polls : 0;
 	result.known = _unreadCount.has_value();
@@ -3164,6 +3170,10 @@ bool History::shouldBeInChatList() const {
 		return true;
 	} else if (const auto channel = peer->asChannel()) {
 		if (!channel->amIn()) {
+			if (AyuSettings::getInstance().saveDeletedMessages()
+				&& (!isEmpty() || (lastMessageKnown() && lastMessage()))) {
+				return true;
+			}
 			return isTopPromoted();
 		}
 	} else if (const auto chat = peer->asChat()) {
@@ -4136,6 +4146,20 @@ std::vector<MsgId> History::collectMessagesFromParticipantToDelete(
 }
 
 void History::clear(ClearType type, bool markEmpty) {
+	if (type == ClearType::Unload
+		&& AyuSettings::getInstance().saveDeletedMessages()
+		&& !blocks.empty()) {
+		if (const auto channel = peer->asChannel()) {
+			if (!channel->amIn()) {
+				return;
+			}
+		} else if (const auto chat = peer->asChat()) {
+			if (!chat->amIn()) {
+				return;
+			}
+		}
+	}
+
 	_unreadBarView = nullptr;
 	_firstUnreadView = nullptr;
 	removeJoinedMessage();

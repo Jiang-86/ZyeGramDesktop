@@ -12,7 +12,6 @@
 
 namespace {
 
-constexpr auto kPrimaryUrl = "https://update.ayugram.one/rc/current/desktop2";
 constexpr auto kExteraUrl = "https://api.exteragram.app/api/v1/profiles/compact";
 constexpr auto kFetchTimeout = 15 * 1000;
 
@@ -31,14 +30,10 @@ std::unordered_set<ID> default_channels = {
 };
 
 void RCManager::start() {
-	DEBUG_LOG(("RCManager: starting"));
-	_manager = std::make_unique<QNetworkAccessManager>();
-
-	makeRequest();
-
-	_timer = new QTimer(this);
-	connect(_timer, &QTimer::timeout, this, &RCManager::makeRequest);
-	_timer->start(60 * 60 * 1000); // 1 hour
+	DEBUG_LOG(("RCManager: remote map disabled for ZyeGram"));
+	_developers = default_developers;
+	_officialChannels = default_channels;
+	initialized = true;
 }
 
 void RCManager::makeRequest() {
@@ -51,7 +46,7 @@ void RCManager::sendRequest() {
 		return;
 	}
 
-	const auto url = QString::fromLatin1(_useExteraFallback ? kExteraUrl : kPrimaryUrl);
+	const auto url = QString::fromLatin1(kExteraUrl);
 	LOG(("RCManager: requesting map"));
 
 	clearSentRequest();

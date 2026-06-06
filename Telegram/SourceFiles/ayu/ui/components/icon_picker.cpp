@@ -15,6 +15,8 @@
 #include "ui/painter.h"
 #include "window/main_window.h"
 
+#include <QPainterPath>
+
 #ifdef Q_OS_WIN
 #include "ayu/utils/windows_utils.h"
 #endif
@@ -22,6 +24,7 @@
 namespace {
 
 const QVector<QString> icons{
+	AyuAssets::ZYE_ICON,
 	AyuAssets::DEFAULT_ICON,
 	AyuAssets::ALT_ICON,
 	AyuAssets::DISCORD_ICON,
@@ -64,21 +67,26 @@ IconPicker::IconPicker(QWidget *parent)
 	}, lifetime());
 }
 
-void IconPicker::drawIcon(QPainter &p, const QImage &icon, int x, int y, float strokeOpacity) {
+void IconPicker::drawIcon(QPainter &p, const QImage &icon, int x, int y, float strokeOpacity, bool circle) {
 	{
 		PainterHighQualityEnabler hq(p);
 		p.save();
 		p.setPen(QPen(st::boxDividerBg, 0));
 		p.setBrush(QBrush(st::boxDividerBg));
 		p.setOpacity(strokeOpacity);
-		p.drawRoundedRect(
+		const auto selected = QRect(
 			x + st::iconPickerSelectedPadding,
 			y + st::iconPickerSelectedPadding,
 			st::iconPickerIconSize + st::iconPickerSelectedPadding * 2,
-			st::iconPickerIconSize + st::iconPickerSelectedPadding * 2,
-			st::iconPickerSelectedRounding,
-			st::iconPickerSelectedRounding
-		);
+			st::iconPickerIconSize + st::iconPickerSelectedPadding * 2);
+		if (circle) {
+			p.drawEllipse(selected);
+		} else {
+			p.drawRoundedRect(
+				selected,
+				st::iconPickerSelectedRounding,
+				st::iconPickerSelectedRounding);
+		}
 		p.restore();
 	}
 
@@ -88,7 +96,17 @@ void IconPicker::drawIcon(QPainter &p, const QImage &icon, int x, int y, float s
 		st::iconPickerIconSize,
 		st::iconPickerIconSize
 	);
-	p.drawImage(rect, icon);
+	if (circle) {
+		PainterHighQualityEnabler hq(p);
+		QPainterPath path;
+		path.addEllipse(rect);
+		p.save();
+		p.setClipPath(path);
+		p.drawImage(rect, icon);
+		p.restore();
+	} else {
+		p.drawImage(rect, icon);
+	}
 }
 
 int IconPicker::cellWidth() const {
@@ -126,7 +144,7 @@ void IconPicker::paintEvent(QPaintEvent *e) {
 			const auto x = i * cell + (cell - iconSize) / 2;
 			const auto y = row * cell;
 
-			drawIcon(p, icon, x, y, opacity);
+			drawIcon(p, icon, x, y, opacity, iconName == AyuAssets::ZYE_ICON);
 		}
 	}
 }

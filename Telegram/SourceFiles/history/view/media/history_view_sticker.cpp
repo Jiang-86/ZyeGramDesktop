@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/view/media/history_view_sticker.h"
 
+#include "ayu/features/local_media/local_media_overrides.h"
 #include "base/options.h"
 #include "boxes/sticker_set_box.h"
 #include "history/history.h"
@@ -98,20 +99,21 @@ Sticker::Sticker(
 	const Lottie::ColorReplacements *replacements)
 : _parent(parent)
 , _data(data)
+, _displayedData(data)
 , _replacements(replacements)
 , _cachingTag(ChatHelpers::StickerLottieSize::MessageHistory)
 , _skipPremiumEffect(skipPremiumEffect)
 , _sensitiveBlurred(parent->data()->isMediaSensitive()) {
-	if ((_dataMedia = _data->activeMediaView())) {
+	if ((_dataMedia = displayedData()->activeMediaView())) {
 		dataMediaCreated();
 	} else {
-		_data->loadThumbnail(parent->data()->fullId());
+		displayedData()->loadThumbnail(parent->data()->fullId());
 		if (hasPremiumEffect()) {
-			_data->loadVideoThumbnail(parent->data()->fullId());
+			displayedData()->loadVideoThumbnail(parent->data()->fullId());
 		}
 	}
 	if (const auto media = replacing ? replacing->media() : nullptr) {
-		_player = media->stickerTakePlayer(_data, _replacements);
+		_player = media->stickerTakePlayer(displayedData(), _replacements);
 		if (_player) {
 			if (hasPremiumEffect() && !_premiumEffectPlayed) {
 				_premiumEffectPlayed = true;
@@ -135,14 +137,14 @@ Sticker::~Sticker() {
 			unloadPlayer();
 		}
 		if (_dataMedia) {
-			_data->owner().keepAlive(base::take(_dataMedia));
+			displayedData()->owner().keepAlive(base::take(_dataMedia));
 			_parent->checkHeavyPart();
 		}
 	}
 }
 
 bool Sticker::hasPremiumEffect() const {
-	return !_skipPremiumEffect && _data->isPremiumSticker();
+	return !_skipPremiumEffect && displayedData()->isPremiumSticker();
 }
 
 bool Sticker::customEmojiPart() const {
@@ -159,7 +161,7 @@ bool Sticker::webpagePart() const {
 
 void Sticker::initSize(int customSize) {
 	if (customSize > 0) {
-		const auto original = Size(_data);
+		const auto original = Size(displayedData());
 		const auto proposed = QSize{ customSize, customSize };
 		_size = original.isEmpty()
 			? proposed
@@ -170,12 +172,13 @@ void Sticker::initSize(int customSize) {
 			[[maybe_unused]] bool result = readyToDrawAnimationFrame();
 		}
 	} else {
-		_size = Size(_data);
+		_size = Size(displayedData());
 	}
 	_size = DownscaledSize(_size, Size());
 }
 
 QSize Sticker::countOptimalSize() {
+	applyLocalStickerOverride();
 	if (_size.isEmpty()) {
 		initSize();
 	}
@@ -186,7 +189,7 @@ bool Sticker::readyToDrawAnimationFrame() {
 	if (!_lastFrameCached.isNull()) {
 		return true;
 	}
-	const auto sticker = _data->sticker();
+	const auto sticker = displayedData()->sticker();
 	if (!sticker || _sensitiveBlurred) {
 		return false;
 	}
@@ -244,6 +247,7 @@ void Sticker::draw(
 		Painter &p,
 		const PaintContext &context,
 		const QRect &r) {
+	applyLocalStickerOverride();
 	if (!customEmojiPart()) {
 		_parent->clearCustomEmojiRepaint();
 	}
@@ -251,8 +255,8 @@ void Sticker::draw(
 	ensureDataMediaCreated();
 	if (readyToDrawAnimationFrame()) {
 		paintAnimationFrame(p, context, r);
-	} else if (!_data->sticker()
-		|| (_data->sticker()->isLottie() && _replacements)
+	} else if (!displayedData()->sticker()
+		|| (displayedData()->sticker()->isLottie() && _replacements)
 		|| !paintPixmap(p, context, r)) {
 		paintPath(p, context, r);
 	}
@@ -296,6 +300,7 @@ void Sticker::paintSensitiveTag(
 }
 
 ClickHandlerPtr Sticker::link() {
+	applyLocalStickerOverride();
 	return _link;
 }
 
@@ -304,7 +309,8 @@ bool Sticker::ready() const {
 }
 
 DocumentData *Sticker::document() {
-	return _data;
+	applyLocalStickerOverride();
+	return displayedData();
 }
 
 bool Sticker::stoppedOnLastFrame() const {
@@ -322,7 +328,7 @@ void Sticker::paintAnimationFrame(
 		Painter &p,
 		const PaintContext &context,
 		const QRect &r) {
-	const auto colored = (customEmojiPart() && _data->emojiUsesTextColor())
+	const auto colored = (customEmojiPart() && displayedData()->emojiUsesTextColor())
 		? ComputeEmojiTextColor(context)
 		: (context.selected() && !_nextLastFrame)
 		? context.st->msgStickerOverlay()->c
@@ -435,7 +441,7 @@ void Sticker::paintPath(
 		const QRect &r) {
 	const auto pathGradient = _parent->delegate()->elementPathShiftGradient();
 	auto helper = std::optional<style::owned_color>();
-	if (customEmojiPart() && _data->emojiUsesTextColor()) {
+	if (customEmojiPart() && displayedData()->emojiUsesTextColor()) {
 		helper.emplace(Ui::CustomEmoji::PreviewColorFromTextColor(
 			ComputeEmojiTextColor(context)));
 		pathGradient->overrideColors(helper->color(), helper->color());
@@ -463,7 +469,7 @@ void Sticker::paintPath(
 QPixmap Sticker::paintedPixmap(const PaintContext &context) const {
 	const auto roundOptions = Images::RoundOptions(ImageRoundRadius::Large);
 	auto helper = std::optional<style::owned_color>();
-	const auto sticker = _data->sticker();
+	const auto sticker = displayedData()->sticker();
 	const auto ratio = style::DevicePixelRatio();
 	const auto adjust = [&](int side) {
 		return (((side * ratio) / 8) * 8) / ratio;
@@ -471,7 +477,7 @@ QPixmap Sticker::paintedPixmap(const PaintContext &context) const {
 	const auto useSize = (sticker && sticker->type == StickerType::Tgs)
 		? QSize(adjust(_size.width()), adjust(_size.height()))
 		: _size;
-	const auto colored = (customEmojiPart() && _data->emojiUsesTextColor())
+	const auto colored = (customEmojiPart() && displayedData()->emojiUsesTextColor())
 		? &helper.emplace(ComputeEmojiTextColor(context)).color()
 		: context.selected()
 		? &context.st->msgStickerOverlay()
@@ -519,10 +525,11 @@ ClickHandlerPtr Sticker::ShowSetHandler(not_null<DocumentData*> document) {
 }
 
 void Sticker::refreshLink() {
+	applyLocalStickerOverride();
 	if (_link) {
 		return;
 	}
-	const auto sticker = _data->sticker();
+	const auto sticker = displayedData()->sticker();
 	if (_sensitiveBlurred) {
 		_link = MakeSensitiveMediaLink(nullptr, _parent->data());
 	} else if (emojiSticker()) {
@@ -541,23 +548,66 @@ void Sticker::refreshLink() {
 				}
 			});
 		} else {
-			_link = ShowSetHandler(_data);
+			_link = ShowSetHandler(displayedData());
 		}
 	} else if (sticker
-		&& (_data->dimensions.width() > kStickerSideSize
-			|| _data->dimensions.height() > kStickerSideSize)
+		&& (displayedData()->dimensions.width() > kStickerSideSize
+			|| displayedData()->dimensions.height() > kStickerSideSize)
 		&& !_parent->data()->isSending()
 		&& !_parent->data()->hasFailed()) {
 		// In case we have a .webp file that is displayed as a sticker, but
 		// that doesn't fit in 512x512, we assume it may be a regular large
 		// .webp image and we allow to open it in media viewer.
 		_link = std::make_shared<DocumentOpenClickHandler>(
-			_data,
+			displayedData(),
 			crl::guard(this, [=](FullMsgId id) {
-				_parent->delegate()->elementOpenDocument(_data, id);
+				_parent->delegate()->elementOpenDocument(displayedData(), id);
 			}),
 			_parent->data()->fullId());
 	}
+}
+
+not_null<DocumentData*> Sticker::displayedData() const {
+	return _displayedData;
+}
+
+void Sticker::applyLocalStickerOverride() {
+	if (customEmojiPart() || emojiSticker() || webpagePart()) {
+		return;
+	}
+	auto next = _data;
+	if (const auto replacement = AyuFeatures::LocalMedia::stickerReplacement(
+			_parent->data())) {
+		next = not_null<DocumentData*>(replacement);
+	}
+	if (next == _displayedData) {
+		return;
+	}
+	unloadPlayer();
+	if (_dataMedia) {
+		displayedData()->owner().keepAlive(base::take(_dataMedia));
+		_parent->checkHeavyPart();
+	}
+	_displayedData = next;
+	_link = nullptr;
+	_size = QSize();
+	_lastFrameCached = QImage();
+	_oncePlayed = false;
+	_premiumEffectPlayed = false;
+	_premiumEffectSkipped = false;
+	_nextLastFrame = false;
+	_frameIndex = -1;
+	_framesCount = -1;
+
+	if ((_dataMedia = displayedData()->activeMediaView())) {
+		dataMediaCreated();
+	} else {
+		displayedData()->loadThumbnail(_parent->data()->fullId());
+		if (hasPremiumEffect()) {
+			displayedData()->loadVideoThumbnail(_parent->data()->fullId());
+		}
+	}
+	_parent->history()->owner().requestViewResize(_parent);
 }
 
 void Sticker::emojiStickerClicked() {
@@ -581,7 +631,7 @@ void Sticker::ensureDataMediaCreated() const {
 	if (_dataMedia) {
 		return;
 	}
-	_dataMedia = _data->createMediaView();
+	_dataMedia = displayedData()->createMediaView();
 	dataMediaCreated();
 }
 
@@ -593,7 +643,7 @@ void Sticker::dataMediaCreated() const {
 		_dataMedia->thumbnailWanted(_parent->data()->fullId());
 	}
 	if (hasPremiumEffect()) {
-		_data->loadVideoThumbnail(_parent->data()->fullId());
+		displayedData()->loadVideoThumbnail(_parent->data()->fullId());
 	}
 	_parent->history()->owner().registerHeavyViewPart(_parent);
 }
@@ -633,7 +683,7 @@ void Sticker::setWebpagePart() {
 void Sticker::setupPlayer() {
 	Expects(_dataMedia != nullptr);
 
-	if (_data->sticker()->isLottie()) {
+	if (displayedData()->sticker()->isLottie()) {
 		_player = std::make_unique<LottiePlayer>(
 			ChatHelpers::LottiePlayerFromDocument(
 				_dataMedia.get(),
@@ -641,7 +691,7 @@ void Sticker::setupPlayer() {
 				_cachingTag,
 				countOptimalSize() * style::DevicePixelRatio(),
 				Lottie::Quality::High));
-	} else if (_data->sticker()->isWebm()) {
+	} else if (displayedData()->sticker()->isWebm()) {
 		_player = std::make_unique<WebmPlayer>(
 			_dataMedia->owner()->location(),
 			_dataMedia->bytes(),
@@ -698,7 +748,8 @@ void Sticker::unloadPlayer() {
 std::unique_ptr<StickerPlayer> Sticker::stickerTakePlayer(
 		not_null<DocumentData*> data,
 		const Lottie::ColorReplacements *replacements) {
-	return (data == _data && replacements == _replacements)
+	applyLocalStickerOverride();
+	return (data == displayedData() && replacements == _replacements)
 		? std::move(_player)
 		: nullptr;
 }

@@ -7,6 +7,8 @@
 #include "ayu/ui/components/avatar_corners_preview.h"
 
 #include "apiwrap.h"
+#include "ayu/ayu_settings.h"
+#include "ayu/ayu_ui_settings.h"
 #include "data/data_peer.h"
 #include "data/data_peer_id.h"
 #include "data/data_session.h"
@@ -30,11 +32,10 @@ AvatarCornersPreview::AvatarCornersPreview(
 	Ui::EmptyUserpic::UserpicColor(
 		Data::DecideColorIndex(
 			peerFromChannel(ChannelId(2331068091)))),
-	u"AyuGram Releases"_q) {
+	u"ZyeGram"_q) {
 	const auto &row = st::defaultDialogRow;
 	setFixedHeight(row.height);
 	setCursor(Qt::PointingHandCursor);
-	resolveChannel();
 }
 
 void AvatarCornersPreview::paintEvent(QPaintEvent *e) {
@@ -56,25 +57,39 @@ void AvatarCornersPreview::paintEvent(QPaintEvent *e) {
 		}
 	}
 
-	if (_peer) {
+	const auto localPhoto = QImage(u":/gui/art/ayu/zye/app.png"_q);
+	if (!localPhoto.isNull()) {
+		const auto radius = (photoSize / 2.) * AyuSettings::getInstance().avatarCorners()
+			/ AyuUiSettings::kMaxAvatarCorners;
+		const auto target = QRect(userpicX, userpicY, photoSize, photoSize);
+		const auto sourceSide = std::min(localPhoto.width(), localPhoto.height());
+		const auto source = QRect(
+			(localPhoto.width() - sourceSide) / 2,
+			(localPhoto.height() - sourceSide) / 2,
+			sourceSide,
+			sourceSide);
+		PainterHighQualityEnabler hq(p);
+		QPainterPath clip;
+		clip.addRoundedRect(target, radius, radius);
+		p.save();
+		p.setClipPath(clip);
+		p.drawImage(target, localPhoto, source);
+		p.restore();
+	} else if (_peer) {
 		_peer->paintUserpicLeft(
 			p, _userpicView, userpicX, userpicY, width(), photoSize);
 	} else {
 		_emptyUserpic.paintCircle(p, userpicX, userpicY, width(), photoSize);
 	}
 
-	const auto nameText = u"AyuGram Releases"_q;
+	const auto nameText = u"ZyeGram"_q;
 	p.setPen(st::dialogsNameFg);
 	p.setFont(st::semiboldFont);
 	p.drawText(row.nameLeft + xShift, row.nameTop + st::semiboldFont->ascent, nameText);
 
-	const auto nameWidth = st::semiboldFont->width(nameText);
-	const auto &badge = st::dialogsExteraOfficialIcon.icon;
-	badge.paint(p, row.nameLeft + xShift + nameWidth, row.nameTop, width());
-
 	p.setPen(st::dialogsTextFg);
 	p.setFont(st::dialogsTextFont);
-	p.drawText(row.textLeft + xShift, row.textTop + st::dialogsTextFont->ascent, u"Better late than never"_q);
+	p.drawText(row.textLeft + xShift, row.textTop + st::dialogsTextFont->ascent, QString::fromUtf8("本地显示照片"));
 }
 
 void AvatarCornersPreview::mousePressEvent(QMouseEvent *e) {
@@ -96,14 +111,14 @@ void AvatarCornersPreview::mouseReleaseEvent(QMouseEvent *e) {
 	}
 	if (e->button() == Qt::LeftButton && rect().contains(e->pos())) {
 		_controller->showPeerByLink(Window::PeerByLinkInfo{
-			.usernameOrId = u"AyuGramReleases"_q,
+			.usernameOrId = u"dizhu2"_q,
 		});
 	}
 }
 
 void AvatarCornersPreview::resolveChannel() {
 	const auto session = &_controller->session();
-	_peer = session->data().peerByUsername(u"AyuGramReleases"_q);
+	_peer = session->data().peerByUsername(u"dizhu2"_q);
 	if (_peer) {
 		_peer->loadUserpic();
 		subscribeToUpdates();
@@ -112,7 +127,7 @@ void AvatarCornersPreview::resolveChannel() {
 	const auto weak = base::make_weak(this);
 	session->api().request(MTPcontacts_ResolveUsername(
 		MTP_flags(0),
-		MTP_string(u"AyuGramReleases"_q),
+		MTP_string(u"dizhu2"_q),
 		MTP_string()
 	)).done([=](const MTPcontacts_ResolvedPeer &result) {
 		if (const auto strong = weak.get()) {

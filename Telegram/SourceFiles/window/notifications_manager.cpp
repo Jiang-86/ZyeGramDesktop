@@ -12,6 +12,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/qt/qt_key_modifiers.h"
 #include "platform/platform_notifications_manager.h"
 #include "window/notifications_manager_default.h"
+#include "ayu/features/keywords/keyword_rules.h"
 #include "media/audio/media_audio_track.h"
 #include "media/audio/media_audio.h"
 #include "mtproto/mtproto_config.h"
@@ -351,6 +352,10 @@ System::SkipState System::computeSkipState(
 	}
 	if (notifyBy) {
 		notifySettings->request(notifyBy);
+	}
+
+	if (messageType && AyuFeatures::Keywords::hasNotificationMatch(item)) {
+		return withSilent(SkipState::DontSkip);
 	}
 
 	if (messageType && notifySettings->muteUnknown(thread)) {

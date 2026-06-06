@@ -162,10 +162,14 @@ set(ayugram_files
         ayu/ui/settings/settings_ayu.h
         ayu/ui/settings/settings_filters.cpp
         ayu/ui/settings/settings_filters.h
+        ayu/ui/settings/settings_keywords.cpp
+        ayu/ui/settings/settings_keywords.h
         ayu/ui/settings/settings_main.cpp
         ayu/ui/settings/settings_main.h
         ayu/ui/settings/settings_other.cpp
         ayu/ui/settings/settings_other.h
+        ayu/ui/settings/settings_quick_actions.cpp
+        ayu/ui/settings/settings_quick_actions.h
         ayu/ui/settings/filters/settings_filters_list.cpp
         ayu/ui/settings/filters/settings_filters_list.h
         ayu/ui/settings/filters/per_dialog_filter.cpp
@@ -241,14 +245,18 @@ set(ayugram_files
         ayu/features/translator/implementations/yandex.h
         ayu/features/translator/implementations/base.cpp
         ayu/features/translator/implementations/base.h
-        ayu/features/filters/filters_controller.cpp
-        ayu/features/filters/filters_controller.h
-        ayu/features/filters/filters_cache_controller.cpp
-        ayu/features/filters/filters_cache_controller.h
-        ayu/features/filters/filters_utils.cpp
-        ayu/features/filters/filters_utils.h
-        ayu/data/messages_storage.cpp
-        ayu/data/messages_storage.h
+         ayu/features/filters/filters_controller.cpp
+         ayu/features/filters/filters_controller.h
+         ayu/features/filters/filters_cache_controller.cpp
+         ayu/features/filters/filters_cache_controller.h
+         ayu/features/filters/filters_utils.cpp
+         ayu/features/filters/filters_utils.h
+         ayu/features/local_media/local_media_overrides.cpp
+         ayu/features/local_media/local_media_overrides.h
+         ayu/features/keywords/keyword_rules.cpp
+         ayu/features/keywords/keyword_rules.h
+         ayu/data/messages_storage.cpp
+         ayu/data/messages_storage.h
         ayu/data/entities.h
         ayu/data/ayu_database.cpp
         ayu/data/ayu_database.h
@@ -2267,12 +2275,12 @@ if (build_macstore)
     )
 else()
     if (CMAKE_GENERATOR STREQUAL Xcode)
-        set(bundle_identifier "one.ayugram.AyuGramDesktop$<$<CONFIG:Debug>:Debug>")
+        set(bundle_identifier "one.zyegram.ZyeGramDesktop$<$<CONFIG:Debug>:Debug>")
     else()
-        set(bundle_identifier "one.ayugram.AyuGramDesktop")
+        set(bundle_identifier "one.zyegram.ZyeGramDesktop")
     endif()
     set(bundle_entitlements "Telegram.entitlements")
-    set(output_name "AyuGram")
+    set(output_name "ZyeGram")
 endif()
 
 if (CMAKE_GENERATOR STREQUAL Xcode)
@@ -2321,7 +2329,7 @@ get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 if (APPLE
     OR is_multi_config
     OR NOT CMAKE_EXECUTABLE_SUFFIX STREQUAL ""
-    OR NOT "${output_name}" STREQUAL "AyuGram")
+    OR NOT "${output_name}" STREQUAL "ZyeGram")
     set(output_folder ${CMAKE_BINARY_DIR})
 else()
     set(output_folder ${CMAKE_BINARY_DIR}/bin)

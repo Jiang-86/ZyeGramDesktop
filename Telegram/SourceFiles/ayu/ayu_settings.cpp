@@ -354,7 +354,7 @@ void from_json(const nlohmann::json &j, MessageShotSettings &s) {
 }
 
 AyuSettings::AyuSettings()
-: _appIcon(AyuAssets::DEFAULT_ICON)
+: _appIcon(AyuAssets::ZYE_ICON)
 , _editedMark(Core::IsAppLaunched() ? tr::lng_edited(tr::now) : QString("edited")) {
 }
 
@@ -410,6 +410,10 @@ void AyuSettings::load() {
 		ghost._sendOnlinePackets = false;
 		ghost._sendUploadProgress = false;
 		ghost._sendOfflinePacketAfterOnline = true;
+	}
+
+	if (settings._appIcon.current() == AyuAssets::DEFAULT_ICON) {
+		settings._appIcon = AyuAssets::ZYE_ICON;
 	}
 
 	settings.validate();
@@ -504,6 +508,8 @@ void AyuSettings::validate() {
 	validateEnum(_showHideMessageInContextMenu, defaults._showHideMessageInContextMenu);
 	validateEnum(_showUserMessagesInContextMenu, defaults._showUserMessagesInContextMenu);
 	validateEnum(_showMessageDetailsInContextMenu, defaults._showMessageDetailsInContextMenu);
+	validateEnum(_showLocalEditMessageInContextMenu, defaults._showLocalEditMessageInContextMenu);
+	validateEnum(_showLocalEditStickerInContextMenu, defaults._showLocalEditStickerInContextMenu);
 	validateEnum(_showRepeatMessageInContextMenu, defaults._showRepeatMessageInContextMenu);
 	validateEnum(_showAddFilterInContextMenu, defaults._showAddFilterInContextMenu);
 
@@ -771,6 +777,18 @@ void AyuSettings::setShowMessageDetailsInContextMenu(ContextMenuVisibility val) 
 	save();
 }
 
+void AyuSettings::setShowLocalEditMessageInContextMenu(ContextMenuVisibility val) {
+	if (_showLocalEditMessageInContextMenu.current() == val) return;
+	_showLocalEditMessageInContextMenu = val;
+	save();
+}
+
+void AyuSettings::setShowLocalEditStickerInContextMenu(ContextMenuVisibility val) {
+	if (_showLocalEditStickerInContextMenu.current() == val) return;
+	_showLocalEditStickerInContextMenu = val;
+	save();
+}
+
 void AyuSettings::setShowRepeatMessageInContextMenu(ContextMenuVisibility val) {
 	if (_showRepeatMessageInContextMenu.current() == val) return;
 	_showRepeatMessageInContextMenu = val;
@@ -981,6 +999,48 @@ void AyuSettings::setShowMessageShot(bool val) {
 	save();
 }
 
+void AyuSettings::setDoubleClickRepeatRightButton(bool val) {
+	if (_doubleClickRepeatRightButton.current() == val) return;
+	_doubleClickRepeatRightButton = val;
+	save();
+}
+
+void AyuSettings::setKeywordRulesEnabled(bool val) {
+	if (_keywordRulesEnabled.current() == val) return;
+	_keywordRulesEnabled = val;
+	save();
+}
+
+void AyuSettings::setKeywordHighlightEnabled(bool val) {
+	if (_keywordHighlightEnabled.current() == val) return;
+	_keywordHighlightEnabled = val;
+	save();
+}
+
+void AyuSettings::setKeywordNotifyEnabled(bool val) {
+	if (_keywordNotifyEnabled.current() == val) return;
+	_keywordNotifyEnabled = val;
+	save();
+}
+
+void AyuSettings::setKeywordCaseInsensitive(bool val) {
+	if (_keywordCaseInsensitive.current() == val) return;
+	_keywordCaseInsensitive = val;
+	save();
+}
+
+void AyuSettings::setKeywordHighlightList(const QString &val) {
+	if (_keywordHighlightList.current() == val) return;
+	_keywordHighlightList = val;
+	save();
+}
+
+void AyuSettings::setKeywordNotifyList(const QString &val) {
+	if (_keywordNotifyList.current() == val) return;
+	_keywordNotifyList = val;
+	save();
+}
+
 void AyuSettings::setFilterZalgo(bool val) {
 	if (_filterZalgo.current() == val) return;
 	_filterZalgo = val;
@@ -1098,6 +1158,8 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"showHideMessageInContextMenu", s._showHideMessageInContextMenu.current()},
 		{"showUserMessagesInContextMenu", s._showUserMessagesInContextMenu.current()},
 		{"showMessageDetailsInContextMenu", s._showMessageDetailsInContextMenu.current()},
+		{"showLocalEditMessageInContextMenu", s._showLocalEditMessageInContextMenu.current()},
+		{"showLocalEditStickerInContextMenu", s._showLocalEditStickerInContextMenu.current()},
 		{"showRepeatMessageInContextMenu", s._showRepeatMessageInContextMenu.current()},
 		{"showAddFilterInContextMenu", s._showAddFilterInContextMenu.current()},
 		{"showAttachButtonInMessageField", s._showAttachButtonInMessageField.current()},
@@ -1132,6 +1194,13 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"showPeerId", s._showPeerId.current()},
 		{"showMessageSeconds", s._showMessageSeconds.current()},
 		{"showMessageShot", s._showMessageShot.current()},
+		{"doubleClickRepeatRightButton", s._doubleClickRepeatRightButton.current()},
+		{"keywordRulesEnabled", s._keywordRulesEnabled.current()},
+		{"keywordHighlightEnabled", s._keywordHighlightEnabled.current()},
+		{"keywordNotifyEnabled", s._keywordNotifyEnabled.current()},
+		{"keywordCaseInsensitive", s._keywordCaseInsensitive.current()},
+		{"keywordHighlightList", s._keywordHighlightList.current()},
+		{"keywordNotifyList", s._keywordNotifyList.current()},
 		{"filterZalgo", s._filterZalgo.current()},
 		{"stickerConfirmation", s._stickerConfirmation.current()},
 		{"gifConfirmation", s._gifConfirmation.current()},
@@ -1198,6 +1267,8 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._showHideMessageInContextMenu = j.value("showHideMessageInContextMenu", defaults._showHideMessageInContextMenu.current());
 	s._showUserMessagesInContextMenu = j.value("showUserMessagesInContextMenu", defaults._showUserMessagesInContextMenu.current());
 	s._showMessageDetailsInContextMenu = j.value("showMessageDetailsInContextMenu", defaults._showMessageDetailsInContextMenu.current());
+	s._showLocalEditMessageInContextMenu = j.value("showLocalEditMessageInContextMenu", defaults._showLocalEditMessageInContextMenu.current());
+	s._showLocalEditStickerInContextMenu = j.value("showLocalEditStickerInContextMenu", defaults._showLocalEditStickerInContextMenu.current());
 	s._showRepeatMessageInContextMenu = j.value("showRepeatMessageInContextMenu", defaults._showRepeatMessageInContextMenu.current());
 	s._showAddFilterInContextMenu = j.value("showAddFilterInContextMenu", defaults._showAddFilterInContextMenu.current());
 	s._showAttachButtonInMessageField = j.value("showAttachButtonInMessageField", defaults._showAttachButtonInMessageField.current());
@@ -1232,6 +1303,13 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._showPeerId = j.value("showPeerId", defaults._showPeerId.current());
 	s._showMessageSeconds = j.value("showMessageSeconds", defaults._showMessageSeconds.current());
 	s._showMessageShot = j.value("showMessageShot", defaults._showMessageShot.current());
+	s._doubleClickRepeatRightButton = j.value("doubleClickRepeatRightButton", defaults._doubleClickRepeatRightButton.current());
+	s._keywordRulesEnabled = j.value("keywordRulesEnabled", defaults._keywordRulesEnabled.current());
+	s._keywordHighlightEnabled = j.value("keywordHighlightEnabled", defaults._keywordHighlightEnabled.current());
+	s._keywordNotifyEnabled = j.value("keywordNotifyEnabled", defaults._keywordNotifyEnabled.current());
+	s._keywordCaseInsensitive = j.value("keywordCaseInsensitive", defaults._keywordCaseInsensitive.current());
+	s._keywordHighlightList = j.value("keywordHighlightList", defaults._keywordHighlightList.current());
+	s._keywordNotifyList = j.value("keywordNotifyList", defaults._keywordNotifyList.current());
 	s._filterZalgo = j.value("filterZalgo", defaults._filterZalgo.current());
 	s._stickerConfirmation = j.value("stickerConfirmation", defaults._stickerConfirmation.current());
 	s._gifConfirmation = j.value("gifConfirmation", defaults._gifConfirmation.current());

@@ -306,6 +306,8 @@ public:
 	[[nodiscard]] ContextMenuVisibility showHideMessageInContextMenu() const { return _showHideMessageInContextMenu.current(); }
 	[[nodiscard]] ContextMenuVisibility showUserMessagesInContextMenu() const { return _showUserMessagesInContextMenu.current(); }
 	[[nodiscard]] ContextMenuVisibility showMessageDetailsInContextMenu() const { return _showMessageDetailsInContextMenu.current(); }
+	[[nodiscard]] ContextMenuVisibility showLocalEditMessageInContextMenu() const { return _showLocalEditMessageInContextMenu.current(); }
+	[[nodiscard]] ContextMenuVisibility showLocalEditStickerInContextMenu() const { return _showLocalEditStickerInContextMenu.current(); }
 	[[nodiscard]] ContextMenuVisibility showRepeatMessageInContextMenu() const { return _showRepeatMessageInContextMenu.current(); }
 	[[nodiscard]] ContextMenuVisibility showAddFilterInContextMenu() const { return _showAddFilterInContextMenu.current(); }
 	[[nodiscard]] bool showAttachButtonInMessageField() const { return _showAttachButtonInMessageField.current(); }
@@ -340,6 +342,13 @@ public:
 	[[nodiscard]] PeerIdDisplay showPeerId() const { return _showPeerId.current(); }
 	[[nodiscard]] bool showMessageSeconds() const { return _showMessageSeconds.current(); }
 	[[nodiscard]] bool showMessageShot() const { return _showMessageShot.current(); }
+	[[nodiscard]] bool doubleClickRepeatRightButton() const { return _doubleClickRepeatRightButton.current(); }
+	[[nodiscard]] bool keywordRulesEnabled() const { return _keywordRulesEnabled.current(); }
+	[[nodiscard]] bool keywordHighlightEnabled() const { return _keywordHighlightEnabled.current(); }
+	[[nodiscard]] bool keywordNotifyEnabled() const { return _keywordNotifyEnabled.current(); }
+	[[nodiscard]] bool keywordCaseInsensitive() const { return _keywordCaseInsensitive.current(); }
+	[[nodiscard]] const QString &keywordHighlightList() const { return _keywordHighlightList.current(); }
+	[[nodiscard]] const QString &keywordNotifyList() const { return _keywordNotifyList.current(); }
 	[[nodiscard]] bool filterZalgo() const { return _filterZalgo.current(); }
 	[[nodiscard]] bool stickerConfirmation() const { return _stickerConfirmation.current(); }
 	[[nodiscard]] bool gifConfirmation() const { return _gifConfirmation.current(); }
@@ -390,6 +399,8 @@ public:
 	void setShowHideMessageInContextMenu(ContextMenuVisibility val);
 	void setShowUserMessagesInContextMenu(ContextMenuVisibility val);
 	void setShowMessageDetailsInContextMenu(ContextMenuVisibility val);
+	void setShowLocalEditMessageInContextMenu(ContextMenuVisibility val);
+	void setShowLocalEditStickerInContextMenu(ContextMenuVisibility val);
 	void setShowRepeatMessageInContextMenu(ContextMenuVisibility val);
 	void setShowAddFilterInContextMenu(ContextMenuVisibility val);
 	void setShowAttachButtonInMessageField(bool val);
@@ -424,6 +435,13 @@ public:
 	void setShowPeerId(PeerIdDisplay val);
 	void setShowMessageSeconds(bool val);
 	void setShowMessageShot(bool val);
+	void setDoubleClickRepeatRightButton(bool val);
+	void setKeywordRulesEnabled(bool val);
+	void setKeywordHighlightEnabled(bool val);
+	void setKeywordNotifyEnabled(bool val);
+	void setKeywordCaseInsensitive(bool val);
+	void setKeywordHighlightList(const QString &val);
+	void setKeywordNotifyList(const QString &val);
 	void setFilterZalgo(bool val);
 	void setStickerConfirmation(bool val);
 	void setGifConfirmation(bool val);
@@ -515,6 +533,10 @@ public:
 	[[nodiscard]] rpl::producer<ContextMenuVisibility> showUserMessagesInContextMenuChanges() const { return _showUserMessagesInContextMenu.changes(); }
 	[[nodiscard]] rpl::producer<ContextMenuVisibility> showMessageDetailsInContextMenuValue() const { return _showMessageDetailsInContextMenu.value(); }
 	[[nodiscard]] rpl::producer<ContextMenuVisibility> showMessageDetailsInContextMenuChanges() const { return _showMessageDetailsInContextMenu.changes(); }
+	[[nodiscard]] rpl::producer<ContextMenuVisibility> showLocalEditMessageInContextMenuValue() const { return _showLocalEditMessageInContextMenu.value(); }
+	[[nodiscard]] rpl::producer<ContextMenuVisibility> showLocalEditMessageInContextMenuChanges() const { return _showLocalEditMessageInContextMenu.changes(); }
+	[[nodiscard]] rpl::producer<ContextMenuVisibility> showLocalEditStickerInContextMenuValue() const { return _showLocalEditStickerInContextMenu.value(); }
+	[[nodiscard]] rpl::producer<ContextMenuVisibility> showLocalEditStickerInContextMenuChanges() const { return _showLocalEditStickerInContextMenu.changes(); }
 	[[nodiscard]] rpl::producer<ContextMenuVisibility> showRepeatMessageInContextMenuValue() const { return _showRepeatMessageInContextMenu.value(); }
 	[[nodiscard]] rpl::producer<ContextMenuVisibility> showRepeatMessageInContextMenuChanges() const { return _showRepeatMessageInContextMenu.changes(); }
 	[[nodiscard]] rpl::producer<ContextMenuVisibility> showAddFilterInContextMenuValue() const { return _showAddFilterInContextMenu.value(); }
@@ -583,6 +605,18 @@ public:
 	[[nodiscard]] rpl::producer<bool> showMessageSecondsChanges() const { return _showMessageSeconds.changes(); }
 	[[nodiscard]] rpl::producer<bool> showMessageShotValue() const { return _showMessageShot.value(); }
 	[[nodiscard]] rpl::producer<bool> showMessageShotChanges() const { return _showMessageShot.changes(); }
+	[[nodiscard]] rpl::producer<bool> keywordRulesEnabledValue() const { return _keywordRulesEnabled.value(); }
+	[[nodiscard]] rpl::producer<bool> keywordRulesEnabledChanges() const { return _keywordRulesEnabled.changes(); }
+	[[nodiscard]] rpl::producer<bool> keywordHighlightEnabledValue() const { return _keywordHighlightEnabled.value(); }
+	[[nodiscard]] rpl::producer<bool> keywordHighlightEnabledChanges() const { return _keywordHighlightEnabled.changes(); }
+	[[nodiscard]] rpl::producer<bool> keywordNotifyEnabledValue() const { return _keywordNotifyEnabled.value(); }
+	[[nodiscard]] rpl::producer<bool> keywordNotifyEnabledChanges() const { return _keywordNotifyEnabled.changes(); }
+	[[nodiscard]] rpl::producer<bool> keywordCaseInsensitiveValue() const { return _keywordCaseInsensitive.value(); }
+	[[nodiscard]] rpl::producer<bool> keywordCaseInsensitiveChanges() const { return _keywordCaseInsensitive.changes(); }
+	[[nodiscard]] rpl::producer<QString> keywordHighlightListValue() const { return _keywordHighlightList.value(); }
+	[[nodiscard]] rpl::producer<QString> keywordHighlightListChanges() const { return _keywordHighlightList.changes(); }
+	[[nodiscard]] rpl::producer<QString> keywordNotifyListValue() const { return _keywordNotifyList.value(); }
+	[[nodiscard]] rpl::producer<QString> keywordNotifyListChanges() const { return _keywordNotifyList.changes(); }
 	[[nodiscard]] rpl::producer<bool> filterZalgoValue() const { return _filterZalgo.value(); }
 	[[nodiscard]] rpl::producer<bool> filterZalgoChanges() const { return _filterZalgo.changes(); }
 	[[nodiscard]] rpl::producer<bool> stickerConfirmationValue() const { return _stickerConfirmation.value(); }
@@ -651,6 +685,8 @@ private:
 	rpl::variable<ContextMenuVisibility> _showHideMessageInContextMenu = ContextMenuVisibility::Hidden;
 	rpl::variable<ContextMenuVisibility> _showUserMessagesInContextMenu = ContextMenuVisibility::VisibleWithModifier;
 	rpl::variable<ContextMenuVisibility> _showMessageDetailsInContextMenu = ContextMenuVisibility::VisibleWithModifier;
+	rpl::variable<ContextMenuVisibility> _showLocalEditMessageInContextMenu = ContextMenuVisibility::Visible;
+	rpl::variable<ContextMenuVisibility> _showLocalEditStickerInContextMenu = ContextMenuVisibility::Visible;
 	rpl::variable<ContextMenuVisibility> _showRepeatMessageInContextMenu = ContextMenuVisibility::Hidden;
 	rpl::variable<ContextMenuVisibility> _showAddFilterInContextMenu = ContextMenuVisibility::Visible;
 	rpl::variable<bool> _showAttachButtonInMessageField = true;
@@ -686,6 +722,13 @@ private:
 	rpl::variable<PeerIdDisplay> _showPeerId = PeerIdDisplay::BotApi;
 	rpl::variable<bool> _showMessageSeconds = false;
 	rpl::variable<bool> _showMessageShot = true;
+	rpl::variable<bool> _doubleClickRepeatRightButton = false;
+	rpl::variable<bool> _keywordRulesEnabled = false;
+	rpl::variable<bool> _keywordHighlightEnabled = true;
+	rpl::variable<bool> _keywordNotifyEnabled = true;
+	rpl::variable<bool> _keywordCaseInsensitive = true;
+	rpl::variable<QString> _keywordHighlightList;
+	rpl::variable<QString> _keywordNotifyList;
 	rpl::variable<bool> _filterZalgo = false;
 	rpl::variable<bool> _stickerConfirmation = false;
 	rpl::variable<bool> _gifConfirmation = false;

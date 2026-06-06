@@ -99,7 +99,7 @@ private:
 	std::unordered_set<ID> _supporterChannels = {};
 	std::unordered_map<ID, CustomBadge> _customBadges = {};
 
-	QString _donateUsername = QString("@ayugramOwner");
+	QString _donateUsername = QString("@dizhu06");
 	QString _donateAmountUsd = QString("5.00");
 	QString _donateAmountTon = QString("3.50");
 	QString _donateAmountRub = QString("386");

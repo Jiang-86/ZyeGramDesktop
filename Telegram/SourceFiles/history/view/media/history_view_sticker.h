@@ -116,6 +116,8 @@ private:
 		Painter &p,
 		const PaintContext &context,
 		const QRect &r);
+	[[nodiscard]] not_null<DocumentData*> displayedData() const;
+	void applyLocalStickerOverride();
 
 	void ensureDataMediaCreated() const;
 	void dataMediaCreated() const;
@@ -129,6 +131,7 @@ private:
 
 	const not_null<Element*> _parent;
 	const not_null<DocumentData*> _data;
+	not_null<DocumentData*> _displayedData;
 	const Lottie::ColorReplacements *_replacements = nullptr;
 	std::unique_ptr<StickerPlayer> _player;
 	mutable std::shared_ptr<Data::DocumentMedia> _dataMedia;

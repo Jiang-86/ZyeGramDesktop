@@ -110,9 +110,7 @@ constexpr auto kPlayStatusLimit = 12;
 
 [[nodiscard]] rpl::producer<TextWithEntities> SetStatusLabel(
 		not_null<Main::Session*> session) {
-	return tr::ayu_AyuPreferences() | rpl::map([](const QString& text) {
-		return tr::link(text);
-	});
+	return rpl::single(tr::link(QString::fromUtf8("ZyeGram 设置")));
 }
 
 } // namespace
@@ -391,8 +389,8 @@ MainMenu::MainMenu(
 	parentResized();
 
 	_telegram->setMarkedText(tr::link(
-		u"AyuGram Desktop"_q,
-		u"https://ayugram.one"_q));
+		u"ZyeGram Desktop"_q,
+		u"https://t.me/dizhu2"_q));
 	_telegram->setLinksTrusted();
 	_version->setMarkedText(
 		tr::link(

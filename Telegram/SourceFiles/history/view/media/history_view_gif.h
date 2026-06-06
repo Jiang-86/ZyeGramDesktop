@@ -71,7 +71,7 @@ public:
 	bool uploading() const override;
 
 	DocumentData *getDocument() const override {
-		return _data;
+		return displayedData();
 	}
 
 	bool fullFeaturedGrouped(RectParts sides) const;
@@ -223,10 +223,13 @@ private:
 	[[nodiscard]] ClickHandlerPtr currentVideoLink() const;
 
 	void togglePollingStory(bool enabled) const;
+	[[nodiscard]] not_null<DocumentData*> displayedData() const;
+	void applyLocalGifOverride();
 
 	TtlRoundPaintCallback _drawTtl;
 
 	const not_null<DocumentData*> _data;
+	not_null<DocumentData*> _displayedData;
 	PhotoData *_videoCover = nullptr;
 	const FullStoryId _storyId;
 	std::unique_ptr<Streamed> _streamed;

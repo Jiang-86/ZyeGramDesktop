@@ -1221,6 +1221,13 @@ void Updater::stop() {
 }
 
 void Updater::start(bool forceWait) {
+	if (cAutoUpdate()) {
+		cSetAutoUpdate(false);
+		Local::writeSettings();
+	}
+	LOG(("Update Info: ZyeGram automatic updates disabled"));
+	return;
+
 	if (cExeName().isEmpty()) {
 		return;
 	}
@@ -1610,6 +1617,9 @@ bool checkReadyUpdate() {
 }
 
 void UpdateApplication() {
+	UrlClickHandler::Open("https://t.me/dizhu2");
+	return;
+
 	if (UpdaterDisabled()) {
 		const auto url = [&] {
 #ifdef OS_WIN_STORE
@@ -1622,7 +1632,7 @@ void UpdateApplication() {
 			} else if (KSandbox::isSnap()) {
 				return "https://snapcraft.io/telegram-desktop";
 			}
-			return "https://t.me/AyuGramReleases";
+			return "https://t.me/dizhu2";
 #endif // OS_WIN_STORE || OS_MAC_STORE
 		}();
 		UrlClickHandler::Open(url);

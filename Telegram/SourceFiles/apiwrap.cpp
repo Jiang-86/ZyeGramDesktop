@@ -159,6 +159,29 @@ void ShowChannelsLimitBox(not_null<PeerData*> peer) {
 		: QString::number(seconds);
 }
 
+[[nodiscard]] MTPInputSingleMedia PrepareExistingAlbumItemMedia(
+		not_null<HistoryItem*> item,
+		const MTPInputMedia &media,
+		uint64 randomId) {
+	auto caption = item->originalText();
+	TextUtilities::Trim(caption);
+	const auto captionNormalized = reverseLocalPremiumEmoji(caption, item->history());
+	auto sentEntities = Api::EntitiesToMTP(
+		&item->history()->session(),
+		captionNormalized.entities,
+		Api::ConvertOption::SkipLocal);
+	const auto flags = !sentEntities.v.isEmpty()
+		? MTPDinputSingleMedia::Flag::f_entities
+		: MTPDinputSingleMedia::Flag(0);
+
+	return MTP_inputSingleMedia(
+		MTP_flags(flags),
+		media,
+		MTP_long(randomId),
+		MTP_string(caption.text),
+		sentEntities);
+}
+
 } // namespace
 
 namespace Api {
@@ -3969,6 +3992,165 @@ void ApiWrap::sendFiles(
 		}
 	}
 	_fileLoader->addTasks(std::move(tasks));
+}
+
+bool ApiWrap::sendExistingAlbum(
+		HistoryItemsList items,
+		const SendAction &action) {
+	if (items.size() < 2) {
+		return false;
+	}
+
+	const auto history = action.history;
+	const auto peer = history->peer;
+	const auto groupId = base::RandomValue<uint64>();
+	auto medias = QVector<MTPInputSingleMedia>();
+	auto failures = std::make_shared<std::vector<std::pair<uint64, FullMsgId>>>();
+	medias.reserve(items.size());
+	failures->reserve(items.size());
+
+	auto actualAction = action;
+	actualAction.clearDraft = false;
+	actualAction.generateLocal = true;
+	sendAction(actualAction);
+
+	for (const auto &item : items) {
+		const auto media = item->media();
+		if (!media) {
+			continue;
+		}
+		auto inputMedia = MTPInputMedia();
+		auto photoForLocal = (PhotoData*)nullptr;
+		auto documentForLocal = (DocumentData*)nullptr;
+		if (const auto photo = media->photo()) {
+			photoForLocal = photo;
+			inputMedia = MTP_inputMediaPhoto(
+				MTP_flags(0),
+				photo->mtpInput(),
+				MTPint(), // ttl_seconds
+				MTPInputDocument()); // video
+		} else if (const auto document = media->document()) {
+			documentForLocal = document;
+			inputMedia = MTP_inputMediaDocument(
+				MTP_flags(actualAction.options.mediaSpoiler
+					? MTPDinputMediaDocument::Flag::f_spoiler
+					: MTPDinputMediaDocument::Flags(0)),
+				document->mtpInput(),
+				MTPInputPhoto(), // video_cover
+				MTPint(), // ttl_seconds
+				MTPint(), // video_timestamp
+				MTPstring()); // query
+		} else {
+			continue;
+		}
+
+		const auto randomId = base::RandomValue<uint64>();
+		const auto newId = FullMsgId(peer->id, _session->data().nextLocalMessageId());
+		_session->data().registerMessageRandomId(randomId, newId);
+		failures->push_back({ randomId, newId });
+		medias.push_back(PrepareExistingAlbumItemMedia(item, inputMedia, randomId));
+
+		auto caption = item->originalText();
+		TextUtilities::Trim(caption);
+		auto flags = NewMessageFlags(peer);
+		if (actualAction.replyTo) {
+			flags |= MessageFlag::HasReplyInfo;
+		}
+		FillMessagePostFlags(actualAction, peer, flags);
+		if (actualAction.options.scheduled) {
+			flags |= MessageFlag::IsOrWasScheduled;
+		}
+		if (actualAction.options.shortcutId) {
+			flags |= MessageFlag::ShortcutMessage;
+		}
+		if (actualAction.options.invertCaption) {
+			flags |= MessageFlag::InvertMedia;
+		}
+		const auto starsPaid = std::min(
+			peer->starsPerMessageChecked(),
+			actualAction.options.starsApproved);
+		if (starsPaid) {
+			actualAction.options.starsApproved -= starsPaid;
+		}
+
+		auto fields = HistoryItemCommonFields{
+			.id = newId.msg,
+			.flags = flags,
+			.from = NewMessageFromId(actualAction),
+			.replyTo = actualAction.replyTo,
+			.date = NewMessageDate(actualAction.options),
+			.shortcutId = actualAction.options.shortcutId,
+			.starsPaid = starsPaid,
+			.postAuthor = NewMessagePostAuthor(actualAction),
+			.groupedId = groupId,
+			.effectId = actualAction.options.effectId,
+			.suggest = HistoryMessageSuggestInfo(actualAction.options),
+		};
+		if (photoForLocal) {
+			history->addNewLocalMessage(
+				std::move(fields),
+				not_null<PhotoData*>(photoForLocal),
+				caption);
+		} else if (documentForLocal) {
+			history->addNewLocalMessage(
+				std::move(fields),
+				not_null<DocumentData*>(documentForLocal),
+				caption);
+		}
+	}
+
+	if (medias.size() < 2) {
+		return false;
+	}
+
+	applyGhostScheduling(_session, actualAction.options);
+
+	const auto replyTo = actualAction.replyTo;
+	const auto sendAs = actualAction.options.sendAs;
+	const auto starsPaid = std::min(
+		peer->starsPerMessageChecked() * int(medias.size()),
+		actualAction.options.starsApproved);
+	if (starsPaid) {
+		actualAction.options.starsApproved -= starsPaid;
+	}
+
+	using Flag = MTPmessages_SendMultiMedia::Flag;
+	const auto flags = Flag(0)
+		| (replyTo ? Flag::f_reply_to : Flag(0))
+		| (ShouldSendSilent(peer, actualAction.options)
+			? Flag::f_silent
+			: Flag(0))
+		| (actualAction.options.scheduled ? Flag::f_schedule_date : Flag(0))
+		| (sendAs ? Flag::f_send_as : Flag(0))
+		| (actualAction.options.shortcutId
+			? Flag::f_quick_reply_shortcut
+			: Flag(0))
+		| (actualAction.options.effectId ? Flag::f_effect : Flag(0))
+		| (actualAction.options.invertCaption ? Flag::f_invert_media : Flag(0))
+		| (starsPaid ? Flag::f_allow_paid_stars : Flag(0));
+
+	auto &histories = history->owner().histories();
+	histories.sendPreparedMessage(
+		history,
+		replyTo,
+		uint64(0), // randomId
+		Data::Histories::PrepareMessage<MTPmessages_SendMultiMedia>(
+			MTP_flags(flags),
+			peer->input(),
+			Data::Histories::ReplyToPlaceholder(),
+			MTP_vector<MTPInputSingleMedia>(medias),
+			MTP_int(actualAction.options.scheduled),
+			(sendAs ? sendAs->input() : MTP_inputPeerEmpty()),
+			Data::ShortcutIdToMTP(_session, actualAction.options.shortcutId),
+			MTP_long(actualAction.options.effectId),
+			MTP_long(starsPaid)
+		), [=](const MTPUpdates &result, const MTP::Response &response) {
+	}, [=](const MTP::Error &error, const MTP::Response &response) {
+		for (const auto &[randomId, msgId] : *failures) {
+			sendMessageFail(error, peer, randomId, msgId);
+		}
+	});
+	return true;
 }
 
 void ApiWrap::sendFile(

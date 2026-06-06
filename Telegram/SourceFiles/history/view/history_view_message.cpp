@@ -13,6 +13,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/unixtime.h"
 #include "core/click_handler_types.h" // ClickHandlerContext
 #include "core/ui_integration.h"
+#include "ayu/features/keywords/keyword_rules.h"
 #include "history/view/history_view_cursor_state.h"
 #include "history/history_item_components.h"
 #include "history/history_item_helpers.h"
@@ -1298,6 +1299,19 @@ void Message::draw(Painter &p, const PaintContext &context) const {
 				},
 				.selection = mediaSelectionIntervals,
 			});
+		if (AyuFeatures::Keywords::hasHighlightMatch(item)) {
+			const auto opacity = p.opacity();
+			const auto rect = g.marginsRemoved(QMargins(1, 1, 1, 1));
+			p.setOpacity(opacity * 0.18);
+			p.setPen(Qt::NoPen);
+			p.setBrush(QColor(255, 64, 64));
+			p.drawRoundedRect(rect, 8, 8);
+			p.setOpacity(opacity);
+			p.setBrush(Qt::NoBrush);
+			p.setPen(QPen(QColor(255, 64, 64), 2));
+			p.drawRoundedRect(rect, 8, 8);
+			p.setOpacity(opacity);
+		}
 
 		auto inner = g;
 		paintCommentsButton(p, inner, context);
@@ -3050,7 +3064,6 @@ TextState Message::textState(
 	if (g.width() < 1 || isHidden()) {
 		return result;
 	}
-
 	if (const auto service = Get<ServicePreMessage>()) {
 		result.link = service->textState(point, request, g);
 		if (result.link) {
