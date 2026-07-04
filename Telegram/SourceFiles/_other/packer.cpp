@@ -13,23 +13,31 @@ bool OnlyAlphaKey = false;
 
 const char *PublicKey = "\
 -----BEGIN RSA PUBLIC KEY-----\n\
-MIGJAoGBAOIENxe1sfT2t7b+HUMpnT6RnN/sCqY0JjK7/1A/59daDc6i/K4023jw\n\
-Us+187Pa2VSaPh3kDywp9PfLDFgFiPTD9BsBvpaSK9p3zyG8k6an3+GbUTlUgmFv\n\
-eI0pg7vmceIl0Lcy9nndfEx27UQId3Y3dQTMuwwFYGtjJAMHNNq5AgMBAAE=\n\
+MIGJAoGBAJ60l6aSMFcC0Znn/6kXAjQJ9Aa6cV5LQzpF+JRcQxHb7A67fHy1OtGz\n\
+1U9U5KQv01ilABVB2RNgQy14Kcby/gmWUFrKpTV5XsXq6WUl2Rcpbz939lp7h457\n\
+fJdmm1Wk7p2S8eW8OGa/F+F+Yog/vsJUhJzX2tl62h0pIxayVSqBAgMBAAE=\n\
 -----END RSA PUBLIC KEY-----\
 ";
 
 const char *PublicBetaKey = "\
 -----BEGIN RSA PUBLIC KEY-----\n\
-MIGJAoGBALWu9GGs0HED7KG7BM73CFZ6o0xufKBRQsdnq3lwA8nFQEvmdu+g/I1j\n\
-0LQ+0IQO7GW4jAgzF/4+soPDb6uHQeNFrlVx1JS9DZGhhjZ5rf65yg11nTCIHZCG\n\
-w/CVnbwQOw0g5GBwwFV3r0uTTvy44xx8XXxk+Qknu4eBCsmrAFNnAgMBAAE=\n\
+MIGJAoGBAJ60l6aSMFcC0Znn/6kXAjQJ9Aa6cV5LQzpF+JRcQxHb7A67fHy1OtGz\n\
+1U9U5KQv01ilABVB2RNgQy14Kcby/gmWUFrKpTV5XsXq6WUl2Rcpbz939lp7h457\n\
+fJdmm1Wk7p2S8eW8OGa/F+F+Yog/vsJUhJzX2tl62h0pIxayVSqBAgMBAAE=\n\
 -----END RSA PUBLIC KEY-----\
 ";
 
 extern const char *PrivateKey;
 extern const char *PrivateBetaKey;
+#if __has_include("packer_private.h")
 #include "packer_private.h" // RSA PRIVATE KEYS for update signing
+#elif __has_include("../../../../../DesktopPrivate/zyegram_updates/zyegram_packer_private.h")
+#include "../../../../../DesktopPrivate/zyegram_updates/zyegram_packer_private.h"
+#else
+const char *PrivateKey = "";
+const char *PrivateBetaKey = "";
+const char *AlphaPrivateKey = "";
+#endif
 
 QString countAlphaVersionSignature(quint64 version);
 

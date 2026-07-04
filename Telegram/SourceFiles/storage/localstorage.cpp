@@ -539,6 +539,9 @@ const QString &AutoupdatePrefix(const QString &replaceWith = {}) {
 	return value;
 }
 
+constexpr auto kZyeGramAutoupdatePrefix
+	= "https://raw.githubusercontent.com/Jiang-86/ZyeGramDesktop/main/updates/";
+
 QString autoupdatePrefixFile() {
 	Expects(!Core::UpdaterDisabled());
 
@@ -559,7 +562,7 @@ const QString &readAutoupdatePrefixRaw() {
 			return AutoupdatePrefix(value);
 		}
 	}
-	return AutoupdatePrefix("https://t.me/dizhu2/");
+	return AutoupdatePrefix(QString::fromLatin1(kZyeGramAutoupdatePrefix));
 }
 
 void writeAutoupdatePrefix(const QString &prefix) {
@@ -568,7 +571,7 @@ void writeAutoupdatePrefix(const QString &prefix) {
 	}
 
 	const auto current = readAutoupdatePrefixRaw();
-    const auto fixedPrefix = QString::fromStdString("https://t.me/dizhu2/");
+	const auto fixedPrefix = QString::fromLatin1(kZyeGramAutoupdatePrefix);
 	if (current != fixedPrefix) {
 		AutoupdatePrefix(fixedPrefix);
 		QFile f(autoupdatePrefixFile());

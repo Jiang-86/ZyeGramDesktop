@@ -950,16 +950,7 @@ void BuildUpdateSection(SectionBuilder &builder, bool atTop) {
 	if (!HasUpdate()) {
 		return;
 	}
-	if (cAutoUpdate()) {
-		cSetAutoUpdate(false);
-		Local::writeSettings();
-	}
 	const auto container = builder.container();
-	const auto zyeUpdateNotice = QString::fromUtf8(
-		"\xE8\xAF\xB7\xE5\x89\x8D\xE5\xBE\x80 ZyeGram "
-		"\xE5\xAE\x98\xE6\x96\xB9\xE9\xA2\x91\xE9\x81\x93"
-		"\xE8\x8E\xB7\xE5\x8F\x96\xE6\x9C\x80\xE6\x96\xB0"
-		"\xE7\x89\x88\xE6\x9C\xAC");
 
 	if (!atTop) {
 		builder.addDivider();
@@ -1041,7 +1032,7 @@ void BuildUpdateSection(SectionBuilder &builder, bool atTop) {
 				Core::UpdateChecker checker;
 				cSetLastUpdateCheck(0);
 				checker.stop();
-				texts->fire_copy(zyeUpdateNotice);
+				checker.start();
 			},
 			.keywords = { u"check"_q, u"update"_q, u"version"_q },
 		});
@@ -1331,10 +1322,6 @@ void SetupUpdate(not_null<Ui::VerticalLayout*> container) {
 	if (!HasUpdate()) {
 		return;
 	}
-	if (cAutoUpdate()) {
-		cSetAutoUpdate(false);
-		Local::writeSettings();
-	}
 
 	const auto texts = Ui::CreateChild<rpl::event_stream<QString>>(
 		container.get());
@@ -1344,11 +1331,6 @@ void SetupUpdate(not_null<Ui::VerticalLayout*> container) {
 		tr::now,
 		lt_version,
 		currentVersionText());
-	const auto zyeUpdateNotice = QString::fromUtf8(
-		"\xE8\xAF\xB7\xE5\x89\x8D\xE5\xBE\x80 ZyeGram "
-		"\xE5\xAE\x98\xE6\x96\xB9\xE9\xA2\x91\xE9\x81\x93"
-		"\xE8\x8E\xB7\xE5\x8F\x96\xE6\x9C\x80\xE6\x96\xB0"
-		"\xE7\x89\x88\xE6\x9C\xAC");
 	const auto toggle = container->add(object_ptr<Button>(
 		container,
 		tr::lng_settings_update_automatically(),
@@ -1495,7 +1477,7 @@ void SetupUpdate(not_null<Ui::VerticalLayout*> container) {
 
 		cSetLastUpdateCheck(0);
 		checker.stop();
-		texts->fire_copy(zyeUpdateNotice);
+		checker.start();
 	});
 	update->addClickHandler([] {
 		if (!Core::UpdaterDisabled()) {

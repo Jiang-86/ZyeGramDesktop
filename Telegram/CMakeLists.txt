@@ -156,6 +156,10 @@ set(ayugram_files
         ayu/ui/settings/settings_ayu_utils.h
         ayu/ui/settings/settings_chats.cpp
         ayu/ui/settings/settings_chats.h
+        ayu/ui/settings/settings_disappeared_groups.cpp
+        ayu/ui/settings/settings_disappeared_groups.h
+        ayu/ui/settings/settings_feature_hub.cpp
+        ayu/ui/settings/settings_feature_hub.h
         ayu/ui/settings/settings_general.cpp
         ayu/ui/settings/settings_general.h
         ayu/ui/settings/settings_ayu.cpp
@@ -253,6 +257,8 @@ set(ayugram_files
          ayu/features/filters/filters_utils.h
          ayu/features/local_media/local_media_overrides.cpp
          ayu/features/local_media/local_media_overrides.h
+         ayu/features/disappeared_groups/disappeared_groups_recorder.cpp
+         ayu/features/disappeared_groups/disappeared_groups_recorder.h
          ayu/features/keywords/keyword_rules.cpp
          ayu/features/keywords/keyword_rules.h
          ayu/data/messages_storage.cpp
@@ -2459,32 +2465,32 @@ if (NOT DESKTOP_APP_DISABLE_AUTOUPDATE AND NOT build_macstore AND NOT build_wins
         )
     endif()
 
+    add_executable(Packer)
+    init_target(Packer)
+
     if (DESKTOP_APP_SPECIAL_TARGET)
-        add_executable(Packer)
-        init_target(Packer)
-
         add_dependencies(Telegram Packer)
-
-        nice_target_sources(Packer ${src_loc}
-        PRIVATE
-            _other/packer.cpp
-            _other/packer.h
-        )
-
-        target_link_libraries(Packer
-        PRIVATE
-            desktop-app::external_qt
-            desktop-app::external_zlib
-            desktop-app::external_auto_updates
-            desktop-app::external_openssl
-        )
-
-        if (DESKTOP_APP_USE_PACKAGED)
-            target_compile_definitions(Packer PRIVATE PACKER_USE_PACKAGED)
-        endif()
-
-        set_target_properties(Packer PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${output_folder})
     endif()
+
+    nice_target_sources(Packer ${src_loc}
+    PRIVATE
+        _other/packer.cpp
+        _other/packer.h
+    )
+
+    target_link_libraries(Packer
+    PRIVATE
+        desktop-app::external_qt
+        desktop-app::external_zlib
+        desktop-app::external_auto_updates
+        desktop-app::external_openssl
+    )
+
+    if (DESKTOP_APP_USE_PACKAGED)
+        target_compile_definitions(Packer PRIVATE PACKER_USE_PACKAGED)
+    endif()
+
+    set_target_properties(Packer PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${output_folder})
 elseif (build_winstore)
     add_executable(StartupTask WIN32)
     init_non_host_target(StartupTask)
